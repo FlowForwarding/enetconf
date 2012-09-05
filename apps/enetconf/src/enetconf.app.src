@@ -3,8 +3,12 @@
   {vsn, "0.1"},
   {applications, [kernel,
                   stdlib,
-		  crypto,
-		  ssh]},
+                  crypto,
+                  ssh]},
   {mod, {enetconf, []}},
-  {env, [{callbacks, []}]}
+  {env, [{callbacks, []},
+         {sshd_ip, {127,0,0,1}},
+         {sshd_port, 830},
+         {sshd_shell, {shell, start, []}},
+         {sshd_user_passwords, []}]}
  ]}.

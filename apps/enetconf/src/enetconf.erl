@@ -37,8 +37,17 @@
 
 %% @private
 start(_, _) ->
-    %% enetconf_ssh:start_link(?DEFAULT_PORT).
-    {error, not_yet_implemented}.
+    {ok, IP} = application:get_env(sshd_ip),
+    {ok, Port} = application:get_env(sshd_port),
+    {ok, Passwords} = application:get_env(sshd_user_passwords),
+    {ok, ShellMFA} = application:get_env(sshd_shell),
+    ssh:daemon(IP, Port,
+               [{system_dir, filename:join([code:priv_dir(?MODULE), "sshd"])},
+                {user_dir, filename:join([code:priv_dir(?MODULE), "sshd"])},
+                {shell, ShellMFA}, 
+                {subsystems, []},
+                {user_passwords, Passwords}
+               ]).
 
 %% @private
 stop(_) ->

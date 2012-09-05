@@ -17,5 +17,3 @@
 %% @author Erlang Solutions Ltd. <openflow@erlang-solutions.com>
 %% @author Krzysztof Rutka <krzysztof.rutka@erlang-solutions.com>
 %% @copyright 2012 FlowForwarding.org
-
--define(DEFAULT_PORT, 830).
