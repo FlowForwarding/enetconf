@@ -1,0 +1,10 @@
+{application, enetconf,
+ [{description, "NETCONF for Erlang"},
+  {vsn, "0.1"},
+  {applications, [kernel,
+                  stdlib,
+		  crypto,
+		  ssh]},
+  {mod, {enetconf, []}},
+  {env, [{callbacks, []}]}
+ ]}.

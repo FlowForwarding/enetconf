@@ -1,0 +1,14 @@
+/apps/*/ebin/
+/apps/*/.eunit/
+/ebin/
+/.eunit/
+/deps/
+/priv/
+/doc/*
+!/doc/overview.edoc
+*.o
+*.beam
+*.app
+*.plt
+rebar
+erl_crash.dump
