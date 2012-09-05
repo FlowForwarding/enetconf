@@ -10,5 +10,5 @@ clean: rebar
 	@./rebar clean
 
 rebar:
-	@wget -q https://github.com/downloads/basho/rebar/rebar
+	@wget -q http://cloud.github.com/downloads/basho/rebar/rebar
 	@chmod u+x rebar
