@@ -26,17 +26,13 @@
 -export([start/2,
 	 stop/1]).
 
-%% Global helpers
--export([get_config/2]).
-
--include("enetconf.hrl").
-
 %%------------------------------------------------------------------------------
 %% Application callbacks
 %%------------------------------------------------------------------------------
 
 %% @private
 start(_, _) ->
+    load_schema(),
     {ok, IP} = application:get_env(sshd_ip),
     {ok, Port} = application:get_env(sshd_port),
     {ok, Passwords} = application:get_env(sshd_user_passwords),
@@ -54,15 +50,16 @@ stop(_) ->
     ok.
 
 %%------------------------------------------------------------------------------
-%% Helper functions
+%% Internal functions
 %%------------------------------------------------------------------------------
 
-%% @doc Get configuration parameter.
--spec get_config(atom(), term()) -> term().
-get_config(Key, Default) ->
-    case application:get_env(?MODULE, Key) of
-	undefined ->
-	    Default;
-	{ok, Value} ->
-	    Value
-    end.
+%% @private
+load_schema() ->
+    %% Process the schema
+    {ok, SchemaFile} = application:get_env(?MODULE, schema_file),
+    SchemaPath = filename:join(code:priv_dir(?MODULE), SchemaFile),
+    {ok, State} = xmerl_xsd:process_schema(SchemaPath),
+
+    %% Save it to an ets table
+    ets:new(?MODULE, [named_table, set, public, {read_concurrency, true}]),
+    ets:insert(?MODULE, {schema, State}).

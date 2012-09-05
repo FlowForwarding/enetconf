@@ -2,13 +2,16 @@
  [{description, "NETCONF for Erlang"},
   {vsn, "0.1"},
   {applications, [kernel,
-                  stdlib,
-                  crypto,
-                  ssh]},
+		  stdlib,
+		  crypto,
+		  ssh,
+		  xmerl]},
   {mod, {enetconf, []}},
-  {env, [{callbacks, []},
+  {env, [{schema_file, "netconf-1.0.xsd"},
+	 {callbacks, []},
          {sshd_ip, {127,0,0,1}},
          {sshd_port, 830},
          {sshd_shell, {shell, start, []}},
-         {sshd_user_passwords, ["guest", "guest"]}]}
+         {sshd_user_passwords, [{"guest", "guest"}]}
+	]}
  ]}.
