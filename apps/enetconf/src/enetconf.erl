@@ -41,7 +41,7 @@ start(_, _) ->
                [{system_dir, filename:join([code:priv_dir(?MODULE), "sshd"])},
                 {user_dir, filename:join([code:priv_dir(?MODULE), "sshd"])},
                 {shell, ShellMFA}, 
-                {subsystems, []},
+                {subsystems, [{"netconf", {enetconf_ssh, []}}]},
                 {user_passwords, Passwords}
                ]).
 

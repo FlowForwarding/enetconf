@@ -17,3 +17,7 @@
 %% @author Erlang Solutions Ltd. <openflow@erlang-solutions.com>
 %% @author Krzysztof Rutka <krzysztof.rutka@erlang-solutions.com>
 %% @copyright 2012 FlowForwarding.org
+
+-define(INFO(Msg, Args), error_logger:info_msg(Msg, Args)).
+-define(WARNING(Msg, Args), error_logger:warning_msg(Msg, Args)).
+-define(ERROR(Msg, Args), error_logger:error_msg(Msg, Args)).
