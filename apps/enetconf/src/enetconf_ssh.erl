@@ -32,31 +32,58 @@
          handle_ssh_msg/2,
          terminate/2]).
 
+-type expected_chunk() :: first_chunk_lf
+                        | first_chunk_header_len
+                        | body
+                        | next_chunk_lf
+                        | header_len_or_end_of_chunks
+                        | last_chunk.
+
+-record(body, {
+          total_size    = 0  :: integer(),
+          received_size = 0  :: integer(),
+          payload       = "" :: string()}).
+
 -record(state, {
-          channel_id :: ssh_channel:channel_id(),
-          connection_ref :: sh_channel:connection_ref()
+          channel_id      :: ssh_channel:channel_id(),
+          connection_ref  :: sh_channel:connection_ref(),
+          expected_chunk  :: expected_chunk(),
+          body = #body{}  :: #body{}
          }).
 
 -define(DATA_TYPE_CODE, 0).
 
 init(_) ->
-    {ok, #state{}}.
+    {ok, #state{expected_chunk = first_chunk_lf}}.
 
 handle_msg({ssh_channel_up, ChannelId, ConnRef}, State) ->
-    ?INFO("SSH channel up. Id: ~p  Ref: ~p", [ChannelId, ConnRef]),
+    ssh_connection:send(ConnRef, ChannelId, get_server_capabilities()),
     {ok, State#state{channel_id = ChannelId,
                      connection_ref= ConnRef}};
 handle_msg({'EXIT', Reason}, #state{channel_id = ChannelId} = State) ->
-    ?INFO("Channel ~p exit with reason : ~p",
+    ?INFO("SSH channel ~p exited with reason : ~p",
           [ChannelId, Reason]),
     {stop, ChannelId, State}.
 
 handle_ssh_msg({ssh_cm, ConnRef, {data, ChannelId,
-                             ?DATA_TYPE_CODE,  Data}},
-               #state{connection_ref= ConnRef, channel_id = ChannelId} = State) ->
-    ?INFO("Handle SSH msg: ~p", [Data, State]),
-    ssh_connection:send(ConnRef, ChannelId, Data),
-    {ok, State};
+                                  ?DATA_TYPE_CODE,  Data}},
+               #state{connection_ref= ConnRef, channel_id = ChannelId,
+                      body = Body} = State) ->
+    case decode_chunked_framing(State#state.expected_chunk,
+                                binary_to_list(Data),
+                                Body) of
+        {continue, NextChunk} ->
+            {ok, State#state{expected_chunk = NextChunk}};
+        {continue, body, NewBody} ->
+            {ok, State#state{expected_chunk = body, body = NewBody}};
+        {continue, next_chunk_lf, NewBody} ->
+            ?INFO("@@@@@@ Full body: ~p", [NewBody#body.payload]),
+            %% ssh_connection:send(ConnRef, ChannelId, list_to_binary(NewBody#body.payload)),
+            {ok, State#state{expected_chunk = next_chunk_lf, body = #body{}}};
+        {stop, last_chunk} ->
+            ssh_connection:send(ConnRef, ChannelId, <<"\nBYE.\n">>),
+            {stop, ChannelId, State}
+    end;
 handle_ssh_msg({ssh_cm, ConnRef, {eof, ChannelId}},
                #state{connection_ref= ConnRef, channel_id = ChannelId} = State) ->
     {ok, State};
@@ -78,3 +105,55 @@ terminate(Subsystem, State) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+get_server_capabilities() ->
+    <<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<hello xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">
+  <capabilities>
+    <capability>
+      urn:ietf:params:netconf:base:1.1
+    </capability>
+    <capability>
+      urn:ietf:params:ns:netconf:capability:startup:1.0
+    </capability>
+  </capabilities>
+  <session-id>4</session-id>
+</hello>
+]]>]]>
+">>.
+
+decode_chunked_framing(first_chunk_lf, "\n", _Body) ->
+    {continue, first_chunk_header_len};
+decode_chunked_framing(first_chunk_header_len, [$# | ChunkSizeAndNewline], _Body) ->
+    [$\n | ReversedChunkSize] = lists:reverse(ChunkSizeAndNewline),
+    ChunkSize = lists:reverse(ReversedChunkSize),
+    case list_to_integer(ChunkSize) of
+        BodySize ->
+            {continue, body, #body{total_size = BodySize}}
+    end;
+decode_chunked_framing(body, NewPayload, #body{total_size = TotalSize,
+                                               received_size = ReceivedSize,
+                                               payload = Payload} = Body) ->
+    TotalReceived = ReceivedSize + length(NewPayload),
+    if
+        TotalReceived < TotalSize ->
+            {continue, body, Body#body{received_size = TotalReceived,
+                                       payload = Payload ++ NewPayload}};
+        TotalReceived == TotalSize ->
+            {continue, next_chunk_lf, Body#body{received_size = TotalReceived,
+                                                payload = Payload ++ NewPayload}};
+        TotalReceived > TotalSize ->
+            {error, body_too_big}
+    end;
+decode_chunked_framing(next_chunk_lf, "\n", _Body) ->
+    {continue, header_len_or_end_of_chunks};
+decode_chunked_framing(header_len_or_end_of_chunks, "##\n", _Body) ->
+    {stop, last_chunk};
+decode_chunked_framing(header_len_or_end_of_chunks,
+                       [$# | ChunkSizeAndNewline], _Body) ->
+    [$\n | ReversedChunkSize] = lists:reverse(ChunkSizeAndNewline),
+    ChunkSize = lists:reverse(ReversedChunkSize),
+    case list_to_integer(ChunkSize) of
+        BodySize ->
+            {continue, body, #body{total_size = BodySize}}
+    end.
