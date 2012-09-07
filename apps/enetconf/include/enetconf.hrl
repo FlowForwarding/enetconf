@@ -17,3 +17,64 @@
 %% @author Erlang Solutions Ltd. <openflow@erlang-solutions.com>
 %% @author Krzysztof Rutka <krzysztof.rutka@erlang-solutions.com>
 %% @copyright 2012 FlowForwarding.org
+
+-type config() :: startup
+                | candidate
+                | running.
+
+-type filter() :: subtree
+                | xpath.
+
+-type default_operation() :: merge
+                           | replace
+                           | none.
+
+-type test_option() :: 'test-then-set'
+                     | set.
+
+-type error_option() :: 'stop-on-error'
+                      | 'continue-on-error'
+                      | 'rollback-on-error'.
+
+-record(filter, {
+          type = subtree :: filter(),
+          select :: string() | undefined
+         }).
+
+-record(edit_config, {
+          target :: config(),
+          default_operation = merge :: default_operation(),
+          test_option :: test_option(),
+          error_option :: error_option()
+         }).
+
+-record(get_config, {
+          source = running :: config(),
+          filter :: #filter{} | undefined
+         }).
+
+-record(copy_config, {
+          source :: config() | {url, string()},
+          target :: config()
+         }).
+
+-record(delete_config, {
+          target :: config()
+         }).
+
+-type operation() :: #edit_config{}
+                   | #get_config{}
+                   | #copy_config{}
+                   | #delete_config{}.
+
+-record(rpc, {
+          message_id :: string(),
+          operation :: operation()
+         }).
+
+-record(rpc_reply, {
+          message_id :: string()
+         }).
+
+-type rpc() :: #rpc{}
+             | #rpc_reply{}.
