@@ -22,7 +22,9 @@
 -module(enetconf_parser_tests).
 
 -include_lib("eunit/include/eunit.hrl").
--include_lib("enetconf/include/enetconf.hrl").
+-include("enetconf.hrl").
+
+-define(SCHEMA, "netconf-1.0.xsd").
 
 %% Test XMLs -------------------------------------------------------------------
 
@@ -85,46 +87,46 @@ parsing_test_() ->
     {setup,
      fun setup/0,
      fun teardown/1,
-     [fun edit_config/0,
-      fun get_config/0,
-      fun copy_config/0,
-      fun delete_config/0]}.
+     [{"Test the 'edit-config' operation", fun edit_config/0},
+      {"Test the 'get-config' operation", fun get_config/0},
+      {"Test the 'copy-config' operation", fun copy_config/0},
+      {"Test the 'delete-config' operation", fun delete_config/0}]}.
 
 edit_config() ->
     EditConfig = #edit_config{target = candidate,
                               default_operation = merge,
                               test_option = set},
-    Rpc = #rpc{message_id = "1",
+    RPC = #rpc{message_id = "1",
                operation = EditConfig},
-    ?assertEqual({ok, Rpc}, enetconf_parser:parse(?EDIT_CONFIG_RPC)).
+    ?assertEqual({ok, RPC}, enetconf_parser:parse(?EDIT_CONFIG_RPC)).
 
 get_config() ->
     Filter = #filter{type = xpath,
                      select = "/some-configuration"},
     GetConfig = #get_config{source = running,
                             filter = Filter},
-    Rpc = #rpc{message_id = "2",
+    RPC = #rpc{message_id = "2",
                operation = GetConfig},
-    ?assertEqual({ok, Rpc}, enetconf_parser:parse(?GET_CONFIG_RPC)).
+    ?assertEqual({ok, RPC}, enetconf_parser:parse(?GET_CONFIG_RPC)).
 
 copy_config() ->
     Url = "https://mydomain.com/new-config.xml",
     CopyConfig = #copy_config{source = {url, Url},
                               target = running},
-    Rpc = #rpc{message_id = "3",
+    RPC = #rpc{message_id = "3",
                operation = CopyConfig},
-    ?assertEqual({ok, Rpc}, enetconf_parser:parse(?COPY_CONFIG_RPC)).
+    ?assertEqual({ok, RPC}, enetconf_parser:parse(?COPY_CONFIG_RPC)).
 
 delete_config() ->
     DeleteConfig = #delete_config{target = startup},
-    Rpc = #rpc{message_id = "4",
+    RPC = #rpc{message_id = "4",
                operation = DeleteConfig},
-    ?assertEqual({ok, Rpc}, enetconf_parser:parse(?DELETE_CONFIG_RPC)).
+    ?assertEqual({ok, RPC}, enetconf_parser:parse(?DELETE_CONFIG_RPC)).
 
 %% Fixtures --------------------------------------------------------------------
 
 setup() ->
-    SchemaPath = filename:join(code:priv_dir(enetconf), "netconf-1.0.xsd"),
+    SchemaPath = filename:join(code:priv_dir(enetconf), ?SCHEMA),
     {ok, State} = xmerl_xsd:process_schema(SchemaPath),
     ets:new(enetconf, [named_table, set, public, {read_concurrency, true}]),
     ets:insert(enetconf, {schema, State}).

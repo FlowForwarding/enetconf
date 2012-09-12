@@ -32,29 +32,50 @@
 
 %% @doc Parse incoming XML using NETCONF's XML schema.
 -spec parse(string()) -> ok | {error, Reason :: term()}.
-parse(Xml) ->
+parse(XML) ->
     %% Get the schema
     [{schema, Schema}] = ets:lookup(enetconf, schema),
 
     %% Scan the XML
-    {ScannedXml, _Rest} = xmerl_scan:string(Xml),
+    {ScannedXML, _Rest} = xmerl_scan:string(XML),
 
     %% Validated XML against the schema
-    case xmerl_xsd:validate(ScannedXml, Schema) of
+    case xmerl_xsd:validate(ScannedXML, Schema) of
         {error, Reason} ->
+	    %% TODO: If a peer receives an <rpc> message that is not well-
+	    %% formed XML or not encoded in UTF-8, it SHOULD reply with a
+	    %% "malformed-message" error.  If a reply cannot be sent for
+	    %% any reason, the server MUST terminate the session.
             {error, Reason};
-        {ValidatedXml, _} ->
-            parse_rpc(ValidatedXml)
+        {ValidatedXML, _} ->
+            parse_rpc(ValidatedXML)
     end.
 
 %%------------------------------------------------------------------------------
 %% Internal functions
 %%------------------------------------------------------------------------------
 
+%% @private
 parse_rpc(#xmlElement{name = rpc, attributes = Attrs, content = Content}) ->
     MessageId = get_attr_value('message-id', Attrs),
-    {ok, #rpc{message_id = MessageId, operation = parse_operation(Content)}}.
+    {ok, #rpc{message_id = MessageId, operation = parse_operation(Content)}};
+parse_rpc(#xmlElement{name = hello, content = Content}) ->
+    CapList = lists:keyfind(capabilities, #xmlElement.name, Content),
+    Capabilities = parse_capabilities(CapList#xmlElement.content, []),
+    {ok, #hello{capabilities = Capabilities,
+		session_id = get_optional('session-id', Content)}}.
 
+%% @private
+parse_capabilities([], Capabilities) ->
+    lists:reverse(Capabilities);
+parse_capabilities([#xmlElement{name = capability,
+				content = Content} | Rest], Capabilities) ->
+    [#xmlText{value = NewCap}] = Content,
+    parse_capabilities(Rest, [string:strip(NewCap) | Capabilities]);
+parse_capabilities([_ | Rest], Capabilities) ->
+    parse_capabilities(Rest, Capabilities).
+
+%% @private
 parse_operation([#xmlElement{name = 'edit-config', content = Content} | _]) ->
     #edit_config{target = get_target(Content),
                  default_operation = get_optional('default-operation', Content),
@@ -71,10 +92,12 @@ parse_operation([#xmlElement{name = 'delete-config', content = Content} | _]) ->
 parse_operation([_ | Rest]) ->
     parse_operation(Rest).
 
+%% @private
 get_source(Content) ->
     Source = lists:keyfind(source, #xmlElement.name, Content),
     find_source(Source#xmlElement.content).
 
+%% @private
 find_source([#xmlElement{name = startup} | _]) ->
     startup;
 find_source([#xmlElement{name = candidate} | _]) ->
@@ -87,10 +110,12 @@ find_source([#xmlElement{name = url, content = Content} | _]) ->
 find_source([_ | Rest]) ->
     find_source(Rest).
 
+%% @private
 get_target(Content) ->
     Source = lists:keyfind(target, #xmlElement.name, Content),
     hd([Name || #xmlElement{name = Name} <- Source#xmlElement.content]).
 
+%% @private
 get_optional(Element, Content) ->
     case lists:keyfind(Element, #xmlElement.name, Content) of
         false ->
@@ -99,6 +124,7 @@ get_optional(Element, Content) ->
             list_to_atom(string:strip(Value))
     end.
 
+%% @private
 get_filter(Content) ->
     case lists:keyfind(filter, #xmlElement.name, Content) of
         false ->
@@ -117,6 +143,7 @@ get_filter(Content) ->
 %% Helper functions
 %%------------------------------------------------------------------------------
 
+%% @private
 get_attr_value(Name, Attrs) ->
     Attribute = lists:keyfind(Name, #xmlAttribute.name, Attrs),
     Attribute#xmlAttribute.value.

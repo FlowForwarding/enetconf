@@ -16,6 +16,7 @@
 
 %% @author Erlang Solutions Ltd. <openflow@erlang-solutions.com>
 %% @author Krzysztof Rutka <krzysztof.rutka@erlang-solutions.com>
+%% @author Konrad Kaplita <konrad.kaplita@erlang-solutions.com>
 %% @copyright 2012 FlowForwarding.org
 %% @doc NETCONF Network Configuration Protocol for Erlang.
 -module(enetconf).
@@ -33,17 +34,7 @@
 %% @private
 start(_, _) ->
     load_schema(),
-    {ok, IP} = application:get_env(sshd_ip),
-    {ok, Port} = application:get_env(sshd_port),
-    {ok, Passwords} = application:get_env(sshd_user_passwords),
-    {ok, ShellMFA} = application:get_env(sshd_shell),
-    ssh:daemon(IP, Port,
-               [{system_dir, filename:join([code:priv_dir(?MODULE), "sshd"])},
-                {user_dir, filename:join([code:priv_dir(?MODULE), "sshd"])},
-                {shell, ShellMFA}, 
-                {subsystems, [{"netconf", {enetconf_ssh, []}}]},
-                {user_passwords, Passwords}
-               ]).
+    start_ssh_daemon().
 
 %% @private
 stop(_) ->
@@ -56,10 +47,26 @@ stop(_) ->
 %% @private
 load_schema() ->
     %% Process the schema
-    {ok, SchemaFile} = application:get_env(?MODULE, schema_file),
-    SchemaPath = filename:join(code:priv_dir(?MODULE), SchemaFile),
+    {ok, SchemaFile} = application:get_env(enetconf, schema_file),
+    SchemaPath = filename:join(code:priv_dir(enetconf), SchemaFile),
     {ok, State} = xmerl_xsd:process_schema(SchemaPath),
 
     %% Save it to an ets table
-    ets:new(?MODULE, [named_table, set, public, {read_concurrency, true}]),
-    ets:insert(?MODULE, {schema, State}).
+    ets:new(enetconf, [named_table, set, public, {read_concurrency, true}]),
+    ets:insert(enetconf, {schema, State}).
+
+%% @private
+start_ssh_daemon() ->
+    %% Load the configuration
+    {ok, IP} = application:get_env(sshd_ip),
+    {ok, Port} = application:get_env(sshd_port),
+    {ok, Passwords} = application:get_env(sshd_user_passwords),
+    {ok, ShellMFA} = application:get_env(sshd_shell),
+
+    %% Start the daemon
+    ssh:daemon(IP, Port,
+               [{system_dir, filename:join([code:priv_dir(enetconf), "sshd"])},
+                {user_dir, filename:join([code:priv_dir(enetconf), "sshd"])},
+                {shell, ShellMFA},
+                {subsystems, [{"netconf", {enetconf_ssh, []}}]},
+                {user_passwords, Passwords}]).

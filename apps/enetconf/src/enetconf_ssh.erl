@@ -15,13 +15,15 @@
 %%-----------------------------------------------------------------------------
 
 %% @author Erlang Solutions Ltd. <openflow@erlang-solutions.com>
+%% @author Konrad Kaplita <konrad.kaplita@erlang-solutions.com>
+%% @author Krzysztof Rutka <krzysztof.rutka@erlang-solutions.com>
 %% @copyright 2012 FlowForwarding.org
 %% @doc SSH Netconf backend module.
 -module(enetconf_ssh).
 
 -behaviour(ssh_channel).
 
--include_lib("enetconf/include/enetconf.hrl").
+-include("enetconf.hrl").
 
 %% API
 -export([]).
@@ -32,128 +34,142 @@
          handle_ssh_msg/2,
          terminate/2]).
 
--type expected_chunk() :: first_chunk_lf
-                        | first_chunk_header_len
-                        | body
-                        | next_chunk_lf
-                        | header_len_or_end_of_chunks
-                        | last_chunk.
-
--record(body, {
-          total_size    = 0  :: integer(),
-          received_size = 0  :: integer(),
-          payload       = "" :: string()}).
-
 -record(state, {
-          channel_id      :: ssh_channel:channel_id(),
-          connection_ref  :: sh_channel:connection_ref(),
-          expected_chunk  :: expected_chunk(),
-          body = #body{}  :: #body{}
+          channel_id     :: ssh_channel:channel_id(),
+          connection_ref :: ssh_channel:connection_ref(),
+          parsing_module :: enetconf_frame_end
+                          | enetconf_frame_chunk,
+          parser         :: record(),
+          callbacks = [] :: [{atom(), atom()}]
          }).
 
 -define(DATA_TYPE_CODE, 0).
 
-init(_) ->
-    {ok, #state{expected_chunk = first_chunk_lf}}.
+%%-----------------------------------------------------------------------------
+%% ssh_channel callbacks
+%%-----------------------------------------------------------------------------
 
+%% @private
+init(_) ->
+    {ok, Callbacks} = application:get_env(enetconf, callbacks),
+    {ok, #state{callbacks = Callbacks}}.
+
+%% @private
 handle_msg({ssh_channel_up, ChannelId, ConnRef}, State) ->
-    ssh_connection:send(ConnRef, ChannelId, get_server_capabilities()),
-    {ok, State#state{channel_id = ChannelId,
-                     connection_ref= ConnRef}};
+    Capabilities = get_server_capabilities(get_session_id()),
+    {ok, EncodedCaps} = enetconf_fm_eom:encode(Capabilities),
+    ssh_connection:send(ConnRef, ChannelId, EncodedCaps),
+    {ok, State#state{connection_ref= ConnRef,
+                     channel_id = ChannelId}};
 handle_msg({'EXIT', Reason}, #state{channel_id = ChannelId} = State) ->
-    ?INFO("SSH channel ~p exited with reason : ~p",
-          [ChannelId, Reason]),
+    ?INFO("SSH channel ~p exited with reason: ~p", [ChannelId, Reason]),
     {stop, ChannelId, State}.
 
-handle_ssh_msg({ssh_cm, ConnRef, {data, ChannelId,
-                                  ?DATA_TYPE_CODE,  Data}},
-               #state{connection_ref= ConnRef, channel_id = ChannelId,
-                      body = Body} = State) ->
-    case decode_chunked_framing(State#state.expected_chunk,
-                                binary_to_list(Data),
-                                Body) of
-        {continue, NextChunk} ->
-            {ok, State#state{expected_chunk = NextChunk}};
-        {continue, body, NewBody} ->
-            {ok, State#state{expected_chunk = body, body = NewBody}};
-        {continue, next_chunk_lf, NewBody} ->
-            ?INFO("@@@@@@ Full body: ~p", [NewBody#body.payload]),
-            %% ssh_connection:send(ConnRef, ChannelId, list_to_binary(NewBody#body.payload)),
-            {ok, State#state{expected_chunk = next_chunk_lf, body = #body{}}};
-        {stop, last_chunk} ->
-            ssh_connection:send(ConnRef, ChannelId, <<"\nBYE.\n">>),
+%% @private
+handle_ssh_msg({ssh_cm, ConnRef, {data, ChannelId, ?DATA_TYPE_CODE,  Data}},
+               #state{connection_ref = ConnRef,
+                      channel_id = ChannelId,
+                      parsing_module = undefined,
+                      parser = undefined} = State) ->
+    %% Decode first received XML
+    case enetconf_fm_eom:decode_one(Data) of
+        {ok, [FirstMessage], Rest} ->
+            %% Parse the XML to check if it's a friendly hello
+            case enetconf_parser:parse(binary_to_list(FirstMessage)) of
+                {ok, #hello{} = Hello} ->
+                    %% Decide on version, choose framing mechanism module
+                    case get_parser_module(Hello) of
+                        {error, bad_version} ->
+                            %% TODO: Send an error
+                            {stop, ChannelId, State};
+                        Module ->
+                            {ok, Parser} = Module:new_parser(),
+                            NewParser = handle_messages(Module, Parser, Rest),
+                            {ok, State#state{parsing_module = Module,
+                                             parser = NewParser}}
+                    end;
+                {error, _} ->
+                    %% TODO: Send an error
+                    ?WARNING("Invalid hello: ~p~n", [FirstMessage]),
+                    {stop, ChannelId, State}
+            end;
+        {ok, [], BadHello} ->
+            %% TODO: Send an error?
+            ?WARNING("Invalid hello: ~p~n", [BadHello]),
             {stop, ChannelId, State}
     end;
+handle_ssh_msg({ssh_cm, ConnRef, {data, ChannelId, ?DATA_TYPE_CODE,  Data}},
+               #state{connection_ref= ConnRef, channel_id = ChannelId,
+                      parsing_module = Module, parser = Parser} = State) ->
+    NewParser = handle_messages(Module, Parser, Data),
+    {ok, State#state{parser = NewParser}};
 handle_ssh_msg({ssh_cm, ConnRef, {eof, ChannelId}},
-               #state{connection_ref= ConnRef, channel_id = ChannelId} = State) ->
+               #state{connection_ref = ConnRef,
+                      channel_id = ChannelId} = State) ->
     {ok, State};
 handle_ssh_msg({ssh_cm, ConnRef, {signal, ChannelId, _Signal}},
-               #state{connection_ref= ConnRef, channel_id = ChannelId} = State) ->
+               #state{connection_ref = ConnRef,
+                      channel_id = ChannelId} = State) ->
     {ok, State};
-handle_ssh_msg({ssh_cm, ConnRef, {exit_signal, ChannelId,
-                                  _ExitSignal, _ErrorMsg, _LanguageString}},
-               #state{connection_ref= ConnRef, channel_id = ChannelId} = State) ->
+handle_ssh_msg({ssh_cm, ConnRef, {exit_signal, ChannelId, _ExitSignal,
+                                  _ErrorMsg, _LanguageString}},
+               #state{connection_ref = ConnRef,
+                      channel_id = ChannelId} = State) ->
     {ok, State};
 handle_ssh_msg({ssh_cm, ConnRef, {exit_status, ChannelId, _ExitStatus}},
-               #state{connection_ref= ConnRef, channel_id = ChannelId} = State) ->
+               #state{connection_ref = ConnRef,
+                      channel_id = ChannelId} = State) ->
     {ok, State}.
 
+%% @private
 terminate(Subsystem, State) ->
     ?INFO("SSH connection with subsystem: ~p terminated with state: ~p",
           [Subsystem, State]).
 
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
+%%------------------------------------------------------------------------------
+%% Internal functions
+%%------------------------------------------------------------------------------
 
-get_server_capabilities() ->
-    <<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<hello xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">
-  <capabilities>
-    <capability>
-      urn:ietf:params:netconf:base:1.1
-    </capability>
-    <capability>
-      urn:ietf:params:ns:netconf:capability:startup:1.0
-    </capability>
-  </capabilities>
-  <session-id>4</session-id>
-</hello>
-]]>]]>
-">>.
+%% @private
+handle_messages(Module, Parser, Data) ->
+    %% Decode messages
+    {ok, Messages, NewParser} = Module:parse(Data, Parser),
 
-decode_chunked_framing(first_chunk_lf, "\n", _Body) ->
-    {continue, first_chunk_header_len};
-decode_chunked_framing(first_chunk_header_len, [$# | ChunkSizeAndNewline], _Body) ->
-    [$\n | ReversedChunkSize] = lists:reverse(ChunkSizeAndNewline),
-    ChunkSize = lists:reverse(ReversedChunkSize),
-    case list_to_integer(ChunkSize) of
-        BodySize ->
-            {continue, body, #body{total_size = BodySize}}
-    end;
-decode_chunked_framing(body, NewPayload, #body{total_size = TotalSize,
-                                               received_size = ReceivedSize,
-                                               payload = Payload} = Body) ->
-    TotalReceived = ReceivedSize + length(NewPayload),
-    if
-        TotalReceived < TotalSize ->
-            {continue, body, Body#body{received_size = TotalReceived,
-                                       payload = Payload ++ NewPayload}};
-        TotalReceived == TotalSize ->
-            {continue, next_chunk_lf, Body#body{received_size = TotalReceived,
-                                                payload = Payload ++ NewPayload}};
-        TotalReceived > TotalSize ->
-            {error, body_too_big}
-    end;
-decode_chunked_framing(next_chunk_lf, "\n", _Body) ->
-    {continue, header_len_or_end_of_chunks};
-decode_chunked_framing(header_len_or_end_of_chunks, "##\n", _Body) ->
-    {stop, last_chunk};
-decode_chunked_framing(header_len_or_end_of_chunks,
-                       [$# | ChunkSizeAndNewline], _Body) ->
-    [$\n | ReversedChunkSize] = lists:reverse(ChunkSizeAndNewline),
-    ChunkSize = lists:reverse(ReversedChunkSize),
-    case list_to_integer(ChunkSize) of
-        BodySize ->
-            {continue, body, #body{total_size = BodySize}}
+    %% TODO: Parse and execute received rpc operations
+    [begin
+         parse_xml(Msg),
+         ?INFO("Received: ~p~n", [Msg])
+     end || Msg <- Messages],
+    NewParser.
+
+%%------------------------------------------------------------------------------
+%% Helper functions
+%%------------------------------------------------------------------------------
+
+%% @private
+get_session_id() ->
+    %% TODO: Create global session-id counter
+    1.
+
+%% @private
+get_server_capabilities(SessionId) ->
+    {ok, Capabilities} = application:get_env(enetconf, capabilities),
+    enetconf_xml:capabilities(Capabilities, SessionId).
+
+%% @private
+get_parser_module(#hello{capabilities = Capabilities}) ->
+    case lists:member(?BASE_CAPABILITY, Capabilities) of
+        true ->
+            enetconf_fm_chunked;
+        false ->
+            case lists:member(?BASE_CAPABILITY_OLD, Capabilities) of
+                true ->
+                    enetconf_fm_eom;
+                false ->
+                    {error, bad_version}
+            end
     end.
+
+%% @private
+parse_xml(_) ->
+    ok.

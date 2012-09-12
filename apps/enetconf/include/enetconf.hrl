@@ -22,6 +22,9 @@
 -define(WARNING(Msg, Args), error_logger:warning_msg(Msg, Args)).
 -define(ERROR(Msg, Args), error_logger:error_msg(Msg, Args)).
 
+-define(BASE_CAPABILITY, "urn:ietf:params:netconf:base:1.1").
+-define(BASE_CAPABILITY_OLD, "urn:ietf:params:netconf:base:1.0").
+
 -type config() :: startup
                 | candidate
                 | running.
@@ -82,3 +85,8 @@
 
 -type rpc() :: #rpc{}
              | #rpc_reply{}.
+
+-record(hello, {
+          capabilities = [] :: [string()],
+          session_id :: integer() | undefined
+         }).

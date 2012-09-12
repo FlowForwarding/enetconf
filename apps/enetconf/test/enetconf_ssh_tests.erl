@@ -51,15 +51,22 @@ ssh_test_() ->
     {setup,
      fun setup/0,
      fun teardown/1,
-     [{"Connect to SSH server and receive hello", fun hello/0}]}.
+     [{"Connect to SSH server and exchange hellos", fun hello/0}]}.
 
 hello() ->
+    %% Connect to SSH server
     Config = [{user, "test"}, {password, "test"},
               {silently_accept_hosts, true}],
     {ok, Ref} = ssh:connect("localhost", ?PORT, Config),
     {ok, Channel} = ssh_connection:session_channel(Ref, ?TIMEOUT),
     success = ssh_connection:subsystem(Ref, Channel, "netconf", ?TIMEOUT),
 
+    %% Send hello
+    ClientCapabilities = enetconf_xml:capabilities([]),
+    {ok, EncCapabilities} = enetconf_fm_eom:encode(ClientCapabilities),
+    ssh_connection:send(Ref, Channel, EncCapabilities),
+
+    %% Wait for hello
     receive
         {ssh_cm, Ref, {data, Channel, 0, Message}} ->
             ok
@@ -68,12 +75,13 @@ hello() ->
             Message = timeout
     end,
 
-    ?assertEqual(?SERVER_HELLO, Message).
+    ?assertEqual(?SERVER_HELLO, Message),
+    {Ref, Channel}.
 
 setup() ->
     error_logger:tty(false),
-    application:load(enetconf),
     application:set_env(enetconf, capabilities, []),
+    application:set_env(enetconf, callbacks, []),
     application:start(ssh),
     Config = [{system_dir, filename:join([code:priv_dir(enetconf), "sshd"])},
               {user_dir, filename:join([code:priv_dir(enetconf), "sshd"])},
@@ -85,5 +93,4 @@ setup() ->
 
 teardown(Ref) ->
     ssh:stop_daemon(Ref),
-    application:stop(ssh),
-    application:unload(enetconfig).
+    application:stop(ssh).

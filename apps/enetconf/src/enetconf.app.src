@@ -8,6 +8,7 @@
                   xmerl]},
   {mod, {enetconf, []}},
   {env, [{schema_file, "netconf-1.0.xsd"},
+         {capabilities, []},
          {callbacks, []},
          {sshd_ip, {127,0,0,1}},
          {sshd_port, 830},
