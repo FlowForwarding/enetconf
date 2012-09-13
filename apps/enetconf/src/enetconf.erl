@@ -34,11 +34,13 @@
 %% @private
 start(_, _) ->
     load_schema(),
-    start_ssh_daemon().
+    {ok, Pid} = start_ssh_daemon(),
+    {ok, Pid, Pid}.
 
 %% @private
-stop(_) ->
-    ok.
+stop(Pid) ->
+    ssh:stop_daemon(Pid),
+    ets:delete(enetconf).
 
 %%------------------------------------------------------------------------------
 %% Internal functions
