@@ -101,10 +101,8 @@ edit_config() ->
     ?assertEqual({ok, RPC}, enetconf_parser:parse(?EDIT_CONFIG_RPC)).
 
 get_config() ->
-    Filter = #filter{type = xpath,
-                     select = "/some-configuration"},
     GetConfig = #get_config{source = running,
-                            filter = Filter},
+                            filter = {xpath, "/some-configuration"}},
     RPC = #rpc{message_id = "2",
                operation = GetConfig},
     ?assertEqual({ok, RPC}, enetconf_parser:parse(?GET_CONFIG_RPC)).

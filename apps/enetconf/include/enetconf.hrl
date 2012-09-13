@@ -41,39 +41,36 @@
 -type get_source() :: config()
                     | url().   %% :url capability
 
--type filter() :: subtree
-                | xpath.  %% :xpath capability
+-type filter() :: {subtree, xml()}
+                | {xpath, string()} %% :xpath capability
+                | undefined.
 
 -type default_operation() :: merge
                            | replace
                            | none.
 
 -type test_option() :: test_then_set %% :validate capability
-                     | set.          %% :validate capability
+                     | set           %% :validate capability
+                     | undefined.
 
 -type error_option() :: stop_on_error
                       | continue_on_error
-                      | rollback_on_error. %% :rollback-on-error capability
+                      | rollback_on_error %% :rollback-on-error capability
+                      | undefined.
 
 -type xml() :: {atom(), [{atom(), term()}], [xml() | string()]}.
 
 -record(edit_config, {
           target :: target(),
           default_operation = merge :: default_operation(),
-          test_option :: test_option() | undefined, %% :validate capability
-          error_option :: error_option() | undefined,
+          test_option :: test_option(), %% :validate capability
+          error_option :: error_option(),
           config :: xml()
-         }).
-
--record(filter, {
-          type :: filter(),
-          subtree :: xml() | undefined,
-          select :: string() | undefined %% :xpath capability
          }).
 
 -record(get_config, {
           source :: get_source(),
-          filter :: #filter{} | undefined
+          filter :: filter()
          }).
 
 -record(copy_config, {
@@ -94,7 +91,7 @@
          }).
 
 -record(get, {
-          filter :: #filter{} | undefined
+          filter :: filter()
          }).
 
 -record(close_session, {}).

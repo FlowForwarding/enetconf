@@ -121,11 +121,14 @@ filter(undefined) ->
     undefined;
 filter({filter, Attrs, Content}) ->
     Type = get_attr(type, Attrs, atom),
-    Select = get_attr(select, Attrs),
-    Subtree = get_child(Content),
-    #filter{type = Type,
-            select = Select,
-            subtree = Subtree}.
+    case Type of
+	subtree ->
+	    Subtree = get_child(Content),
+	    {subtree, Subtree};
+	xpath ->
+	    Select = get_attr(select, Attrs),
+	    {xpath, Select}
+    end.
 
 %%------------------------------------------------------------------------------
 %% Helper functions
