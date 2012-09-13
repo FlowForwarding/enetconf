@@ -17,21 +17,32 @@
 %% @author Erlang Solutions Ltd. <openflow@erlang-solutions.com>
 %% @author Krzysztof Rutka <krzysztof.rutka@erlang-solutions.com>
 %% @copyright 2012 FlowForwarding.org
-%% @doc Behaviour for handling custom NETCONF configurations.
+%% @doc Behaviour for handling NETCONF configurations.
 %% @private
 -module(gen_netconf).
 
--callback handle_get_config(Source :: atom()) -> ok.
+-include("enetconf.hrl").
 
--callback handle_edit_config(Target :: atom(), XmlConfig :: tuple()) -> ok.
+-type error() :: {error, Reason :: term()}.
 
--callback handle_delete_config(Target :: atom()) -> ok.
+-callback handle_get_config(Source :: get_source(),
+                            Filter :: filter()) -> {ok, Config :: xml()} |
+                                                   error().
 
--callback handle_copy_config(Source :: atom(), Target :: atom()) -> ok.
+-callback handle_edit_config(Target :: target(),
+                             Config :: xml()) -> ok | error().
 
-%% Other operations
-%% -callback handle_lock() -> ok.
-%% -callback handle_unlock() -> ok.
-%% -callback handle_get() -> ok.
-%% -callback handle_close_session() -> ok.
-%% -callback handle_kill_session() -> ok.
+-callback handle_delete_config(Target :: target()) -> ok | error().
+
+-callback handle_copy_config(Source :: source(),
+                             Target :: target()) -> ok | error().
+
+-callback handle_lock(Target :: target()) -> ok | error().
+
+-callback handle_unlock(Target :: target()) -> ok | error().
+
+-callback handle_get(Filter :: filter()) -> {ok, Config :: xml()} | error().
+
+-callback handle_close_session() -> any().
+
+-callback handle_kill_session(SessionId :: integer()) -> ok | error().
