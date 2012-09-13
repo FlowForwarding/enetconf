@@ -115,6 +115,7 @@
         <xs:sequence>
             <xs:element name="rpc-error" type="rpcErrorType" minOccurs="0" maxOccurs="unbounded"/>
             <xs:element name="data" type="xs:anyType" minOccurs="0"/>
+            <!--<xs:element name="data" type="dataInlineType" minOccurs="0"/>-->
         </xs:sequence>
     </xs:group>
     <xs:element name="rpc-reply" type="rpcReplyType"/>
@@ -133,6 +134,16 @@
     </xs:simpleType>
     <xs:complexType name="rpcOperationType"/>
     <xs:element name="rpcOperation" type="rpcOperationType" abstract="true"/>
+    <!--<xs:complexType name="configInlineType">
+        <xs:complexContent>
+            <xs:extension base="xs:anyType"/>
+        </xs:complexContent>
+    </xs:complexType>-->
+    <!--<xs:complexType name="dataInlineType">
+        <xs:complexContent>
+            <xs:extension base="xs:anyType"/>
+        </xs:complexContent>
+    </xs:complexType>-->
     <xs:simpleType name="FilterType">
         <xs:restriction base="xs:string">
             <xs:enumeration value="subtree"/>
@@ -143,6 +154,14 @@
         <xs:attribute name="type" type="FilterType" default="subtree"/>
         <xs:attribute name="select"/>
     </xs:complexType>
+    <!--<xs:complexType name="filterInlineType">
+        <xs:complexContent>
+            <xs:extension base="xs:anyType">
+                <xs:attribute name="type" type="FilterType" default="subtree"/>
+                <xs:attribute name="select"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>-->
     <xs:complexType name="configNameType"/>
     <xs:element name="config-name" type="configNameType" abstract="true"/>
     <xs:element name="startup" type="configNameType" substitutionGroup="config-name"/>
@@ -172,6 +191,7 @@
     <xs:complexType name="rpcOperationSourceType">
         <xs:choice>
             <xs:element name="config" type="xs:anyType"/>
+            <!--<xs:element name="config" type="configInlineType"/>-->
             <xs:element ref="config-name"/>
             <xs:element name="url" type="configURIType"/>
         </xs:choice>
@@ -209,6 +229,7 @@
                     <xs:element name="error-option" type="errorOptionType" minOccurs="0"/>
                     <xs:choice>
                         <xs:element name="config" type="xs:anyType"/>
+                        <!--<xs:element name="config" type="configInlineType"/>-->
                         <xs:element name="url" type="configURIType"/>
                     </xs:choice>
                 </xs:sequence>
