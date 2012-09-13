@@ -92,5 +92,5 @@ setup() ->
     Ref.
 
 teardown(Ref) ->
-    ssh:stop_daemon(Ref),
+    exit(Ref, kill),
     application:stop(ssh).
