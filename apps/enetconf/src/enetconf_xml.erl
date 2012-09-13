@@ -22,8 +22,9 @@
 
 %% API
 -export([ok/1,
-	 capabilities/1,
-	 capabilities/2]).
+         capabilities/1,
+         capabilities/2]).
+-export([to_simple_form/1]).
 
 -include_lib("xmerl/include/xmerl.hrl").
 -include("enetconf.hrl").
@@ -39,25 +40,64 @@
 -spec ok(string()) -> binary().
 ok(MessageId) ->
     export({'rpc-reply', [{'message-id', MessageId}, ?NS],
-	    [{ok, [], []}]}).
+            [{ok, [], []}]}).
 
 %% @doc Returns hello message with list of available capabilities.
 -spec capabilities([string()]) -> binary().
 capabilities(Capabilities) ->
     export({hello, [?NS],
-	    [{capabilities, [],
-	      [{capability, [], [?BASE_CAPABILITY]}
-	       | [{capability, [], [Cap]} || Cap <- Capabilities]]}]}).
+            [{capabilities, [],
+              [{capability, [], [?BASE_CAPABILITY]}
+               | [{capability, [], [Cap]} || Cap <- Capabilities]]}]}).
 
 %% @doc Returns hello message with list of available capabilities + session-id.
 -spec capabilities([string()], integer()) -> binary().
 capabilities(Capabilities, SessionId) ->
     export({hello, [?NS],
-	    [{capabilities, [],
-	      [{capability, [], [?BASE_CAPABILITY]}
-	       | [{capability, [], [Cap]} || Cap <- Capabilities]]},
-	     {'session-id', [], [integer_to_list(SessionId)]}]}).
+            [{capabilities, [],
+              [{capability, [], [?BASE_CAPABILITY]}
+               | [{capability, [], [Cap]} || Cap <- Capabilities]]},
+             {'session-id', [], [integer_to_list(SessionId)]}]}).
+
+%% @doc Convert XML records returned by xmerl to a simple form tuples.
+%% It will output only the xmlElement and xmlText records and skip all the
+%% unnecessary whitespace xmlTexts.
+-spec to_simple_form(#xmlElement{} | list()) -> tuple().
+to_simple_form(#xmlElement{name = Name,
+                           attributes = Attrs,
+                           content = Content}) ->
+    {Name, attributes(Attrs), content(Content)};
+to_simple_form(#xmlText{value = Value}) ->
+    string:strip(Value);
+to_simple_form(Elements) when is_list(Elements) ->
+    content(Elements).
+
+%%------------------------------------------------------------------------------
+%% Internal functions
+%%------------------------------------------------------------------------------
 
 %% @private
 export(SimpleFormXml) ->
     list_to_binary(xmerl:export_simple([SimpleFormXml], xmerl_xml, [?PROLOG])).
+
+%% @private
+content(Elements) ->
+    content(Elements, []).
+
+%% @private
+content([], SimpleForms) ->
+    lists:reverse(SimpleForms);
+content([Element | Rest], SimpleForms) when is_record(Element, xmlElement) or
+                                            is_record(Element, xmlText) ->
+    case to_simple_form(Element) of
+        "" ->
+            content(Rest, SimpleForms);
+        SimpleForm ->
+            content(Rest, [SimpleForm | SimpleForms])
+    end;
+content([_ | Rest], SimpleForms) ->
+    content(Rest, SimpleForms).
+
+%% @private
+attributes(Attrs) ->
+    [{Name, Value} || #xmlAttribute{name = Name, value = Value} <- Attrs].

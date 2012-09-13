@@ -81,7 +81,7 @@ hello() ->
 setup() ->
     error_logger:tty(false),
     application:set_env(enetconf, capabilities, []),
-    application:set_env(enetconf, callbacks, []),
+    application:set_env(enetconf, callback_module, undefined),
     application:start(ssh),
     Config = [{system_dir, filename:join([code:priv_dir(enetconf), "sshd"])},
               {user_dir, filename:join([code:priv_dir(enetconf), "sshd"])},

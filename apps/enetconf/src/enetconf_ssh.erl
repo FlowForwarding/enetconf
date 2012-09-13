@@ -35,12 +35,11 @@
          terminate/2]).
 
 -record(state, {
-          channel_id     :: ssh_channel:channel_id(),
+          channel_id :: ssh_channel:channel_id(),
           connection_ref :: ssh_channel:connection_ref(),
-          parsing_module :: enetconf_frame_end
-                          | enetconf_frame_chunk,
-          parser         :: record(),
-          callbacks = [] :: [{atom(), atom()}]
+          parsing_module :: enetconf_frame_end | enetconf_frame_chunk,
+          parser :: record(),
+          callback_module :: atom()
          }).
 
 -define(DATA_TYPE_CODE, 0).
@@ -51,8 +50,8 @@
 
 %% @private
 init(_) ->
-    {ok, Callbacks} = application:get_env(enetconf, callbacks),
-    {ok, #state{callbacks = Callbacks}}.
+    {ok, Callback} = application:get_env(enetconf, callback_module),
+    {ok, #state{callback_module = Callback}}.
 
 %% @private
 handle_msg({ssh_channel_up, ChannelId, ConnRef}, State) ->
@@ -66,7 +65,7 @@ handle_msg({'EXIT', Reason}, #state{channel_id = ChannelId} = State) ->
     {stop, ChannelId, State}.
 
 %% @private
-handle_ssh_msg({ssh_cm, ConnRef, {data, ChannelId, ?DATA_TYPE_CODE,  Data}},
+handle_ssh_msg({ssh_cm, ConnRef, {data, ChannelId, ?DATA_TYPE_CODE, Data}},
                #state{connection_ref = ConnRef,
                       channel_id = ChannelId,
                       parsing_module = undefined,
@@ -84,9 +83,10 @@ handle_ssh_msg({ssh_cm, ConnRef, {data, ChannelId, ?DATA_TYPE_CODE,  Data}},
                             {stop, ChannelId, State};
                         Module ->
                             {ok, Parser} = Module:new_parser(),
-                            NewParser = handle_messages(Module, Parser, Rest),
-                            {ok, State#state{parsing_module = Module,
-                                             parser = NewParser}}
+                            TempState = State#state{parsing_module = Module,
+                                                    parser = Parser},
+                            NewState = handle_messages(Rest, TempState),
+                            {ok, NewState}
                     end;
                 {error, _} ->
                     %% TODO: Send an error
@@ -98,11 +98,11 @@ handle_ssh_msg({ssh_cm, ConnRef, {data, ChannelId, ?DATA_TYPE_CODE,  Data}},
             ?WARNING("Invalid hello: ~p~n", [BadHello]),
             {stop, ChannelId, State}
     end;
-handle_ssh_msg({ssh_cm, ConnRef, {data, ChannelId, ?DATA_TYPE_CODE,  Data}},
-               #state{connection_ref= ConnRef, channel_id = ChannelId,
-                      parsing_module = Module, parser = Parser} = State) ->
-    NewParser = handle_messages(Module, Parser, Data),
-    {ok, State#state{parser = NewParser}};
+handle_ssh_msg({ssh_cm, ConnRef, {data, ChannelId, ?DATA_TYPE_CODE, Data}},
+               #state{connection_ref= ConnRef,
+                      channel_id = ChannelId} = State) ->
+    NewState = handle_messages(Data, State),
+    {ok, NewState};
 handle_ssh_msg({ssh_cm, ConnRef, {eof, ChannelId}},
                #state{connection_ref = ConnRef,
                       channel_id = ChannelId} = State) ->
@@ -131,16 +131,54 @@ terminate(Subsystem, State) ->
 %%------------------------------------------------------------------------------
 
 %% @private
-handle_messages(Module, Parser, Data) ->
+handle_messages(Data, #state{connection_ref = ConnRef, channel_id = ChannelId,
+                             parsing_module = Module, parser = Parser,
+                             callback_module = Callback} = State) ->
     %% Decode messages
     {ok, Messages, NewParser} = Module:parse(Data, Parser),
 
-    %% TODO: Parse and execute received rpc operations
+    %% Parse and execute received rpc operations
     [begin
-         parse_xml(Msg),
-         ?INFO("Received: ~p~n", [Msg])
+         ?INFO("Received: ~p~n", [Msg]),
+         case parse_xml(Msg, Callback) of
+             {ok, Reply} ->
+                 {ok, EncodedReply} = Module:encode(Reply),
+                 ssh_connection:send(ConnRef, ChannelId, EncodedReply);
+             {error, _Reason} ->
+                 %% TODO: Return some errors
+                 %% enetconf_xml:rpc_error(Reason)
+                 error
+         end
      end || Msg <- Messages],
-    NewParser.
+
+    State#state{parser = NewParser}.
+
+%% @private
+parse_xml(XML, Callback) ->
+    try
+        Operation = enetconf_parser:parse(XML),
+        case Callback of
+            undefined ->
+                %% TODO: No callback specified
+                {error, no_callback_module};
+            Callback ->
+                execute(Operation, Callback)
+        end
+    catch
+        throw:{error, {scan, _}} ->
+            {error, reason};
+        throw:{error, {validate, _}} ->
+            {error, reason};
+        throw:{error, {parse, _}} ->
+            {error, reason}
+    end.
+
+%% @private
+execute(#hello{}, _) ->
+    rpc_error;
+execute(#rpc{message_id = MessageId}, _Callback) ->
+    %% TODO: Execute received operations using the callback module
+    {ok, enetconf_xml:ok(MessageId)}.
 
 %%------------------------------------------------------------------------------
 %% Helper functions
@@ -169,7 +207,3 @@ get_parser_module(#hello{capabilities = Capabilities}) ->
                     {error, bad_version}
             end
     end.
-
-%% @private
-parse_xml(_) ->
-    ok.

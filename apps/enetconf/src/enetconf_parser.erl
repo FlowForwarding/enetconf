@@ -36,19 +36,25 @@ parse(XML) ->
     %% Get the schema
     [{schema, Schema}] = ets:lookup(enetconf, schema),
 
-    %% Scan the XML
-    {ScannedXML, _Rest} = xmerl_scan:string(XML),
+    try
+        %% Scan the XML
+        {ScannedXML, _Rest} = xmerl_scan:string(XML),
 
-    %% Validated XML against the schema
-    case xmerl_xsd:validate(ScannedXML, Schema) of
-        {error, Reason} ->
-	    %% TODO: If a peer receives an <rpc> message that is not well-
-	    %% formed XML or not encoded in UTF-8, it SHOULD reply with a
-	    %% "malformed-message" error.  If a reply cannot be sent for
-	    %% any reason, the server MUST terminate the session.
-            {error, Reason};
-        {ValidatedXML, _} ->
-            parse_rpc(ValidatedXML)
+        %% Validated XML against the schema
+        case xmerl_xsd:validate(ScannedXML, Schema) of
+            {error, ValidationError} ->
+                throw({error, {validate, ValidationError}});
+            {ValidatedXML, _} ->
+                %% Convert to simple form
+                SimpleXML = enetconf_xml:to_simple_form(ValidatedXML),
+
+                do_parse(SimpleXML)
+        end
+    catch
+        _:{'EXIT', {fatal, {ScanError, _, _, _}}} ->
+            throw({error, {scan, ScanError}});
+        throw:{parse_error, ParseError} ->
+            throw({error, {parse, ParseError}})
     end.
 
 %%------------------------------------------------------------------------------
@@ -56,94 +62,137 @@ parse(XML) ->
 %%------------------------------------------------------------------------------
 
 %% @private
-parse_rpc(#xmlElement{name = rpc, attributes = Attrs, content = Content}) ->
-    MessageId = get_attr_value('message-id', Attrs),
-    {ok, #rpc{message_id = MessageId, operation = parse_operation(Content)}};
-parse_rpc(#xmlElement{name = hello, content = Content}) ->
-    CapList = lists:keyfind(capabilities, #xmlElement.name, Content),
-    Capabilities = parse_capabilities(CapList#xmlElement.content, []),
+do_parse({rpc, Attrs, [Content]}) ->
+    MessageId = get_attr('message-id', Attrs),
+    Operation = operation(Content),
+    {ok, #rpc{message_id = MessageId,
+              operation = Operation}};
+do_parse({hello, _, Content}) ->
+    Capabilities = get_text_array(capabilities, Content),
+    SessionId = get_text('session-id', Content, integer),
     {ok, #hello{capabilities = Capabilities,
-		session_id = get_optional('session-id', Content)}}.
+                session_id = SessionId}}.
 
 %% @private
-parse_capabilities([], Capabilities) ->
-    lists:reverse(Capabilities);
-parse_capabilities([#xmlElement{name = capability,
-				content = Content} | Rest], Capabilities) ->
-    [#xmlText{value = NewCap}] = Content,
-    parse_capabilities(Rest, [string:strip(NewCap) | Capabilities]);
-parse_capabilities([_ | Rest], Capabilities) ->
-    parse_capabilities(Rest, Capabilities).
+operation({'edit-config', _, Content}) ->
+    Target = target(get_child(target, Content)),
+    Operation = get_text('default-operation', Content, atom),
+    Test = get_text('test-option', Content, atom),
+    Error = get_text('error-option', Content, atom),
+    #edit_config{target = Target,
+                 default_operation = Operation,
+                 test_option = Test,
+                 error_option = Error};
+operation({'get-config', _, Content}) ->
+    Source = get_config_source(get_child(source, Content)),
+    Filter = filter(get_child(filter, Content)),
+    #get_config{source = Source,
+                filter = Filter};
+operation({'copy-config', _, Content}) ->
+    Source = source(get_child(source, Content)),
+    Target = target(get_child(target, Content)),
+    #copy_config{source = Source,
+                 target = Target};
+operation({'delete-config', _, [Content]}) ->
+    #delete_config{target = target(Content)}.
 
 %% @private
-parse_operation([#xmlElement{name = 'edit-config', content = Content} | _]) ->
-    #edit_config{target = get_target(Content),
-                 default_operation = get_optional('default-operation', Content),
-                 test_option = get_optional('test-option', Content),
-                 error_option = get_optional('error-option', Content)};
-parse_operation([#xmlElement{name = 'get-config', content = Content} | _]) ->
-    #get_config{source = get_source(Content),
-                filter = get_filter(Content)};
-parse_operation([#xmlElement{name = 'copy-config', content = Content} | _]) ->
-    #copy_config{source = get_source(Content),
-                 target = get_target(Content)};
-parse_operation([#xmlElement{name = 'delete-config', content = Content} | _]) ->
-    #delete_config{target = get_target(Content)};
-parse_operation([_ | Rest]) ->
-    parse_operation(Rest).
+get_config_source({source, _, [{url, _, [Url]}]}) ->
+    {url, Url};
+get_config_source({source, _, [{Tag, _, _}]}) ->
+    Tag.
 
 %% @private
-get_source(Content) ->
-    Source = lists:keyfind(source, #xmlElement.name, Content),
-    find_source(Source#xmlElement.content).
+source({source, _, [{url, _, [Url]}]}) ->
+    {url, Url};
+source({source, _, [{config, _, [Config]}]}) ->
+    Config;
+source({source, _, [{Tag, _, _}]}) ->
+    Tag.
 
 %% @private
-find_source([#xmlElement{name = startup} | _]) ->
-    startup;
-find_source([#xmlElement{name = candidate} | _]) ->
-    candidate;
-find_source([#xmlElement{name = running} | _]) ->
-    running;
-find_source([#xmlElement{name = url, content = Content} | _]) ->
-    [#xmlText{value = Value}] = Content,
-    {url, string:strip(Value)};
-find_source([_ | Rest]) ->
-    find_source(Rest).
+target({target, _, [{url, _, [Url]}]}) ->
+    {url, Url};
+target({target, _, [{Tag, _, _}]}) ->
+    Tag.
 
 %% @private
-get_target(Content) ->
-    Source = lists:keyfind(target, #xmlElement.name, Content),
-    hd([Name || #xmlElement{name = Name} <- Source#xmlElement.content]).
-
-%% @private
-get_optional(Element, Content) ->
-    case lists:keyfind(Element, #xmlElement.name, Content) of
-        false ->
-            undefined;
-        #xmlElement{content = [#xmlText{value = Value}]} ->
-            list_to_atom(string:strip(Value))
-    end.
-
-%% @private
-get_filter(Content) ->
-    case lists:keyfind(filter, #xmlElement.name, Content) of
-        false ->
-            undefined;
-        #xmlElement{attributes = Attrs} ->
-            case string:strip(get_attr_value(type, Attrs)) of
-                "subtree" ->
-                    #filter{type = subtree};
-                "xpath" ->
-                    Select = get_attr_value(select, Attrs),
-                    #filter{type = xpath, select = Select}
-            end
-    end.
+filter(undefined) ->
+    undefined;
+filter({filter, Attrs, Content}) ->
+    Type = get_attr(type, Attrs, atom),
+    Select = get_attr(select, Attrs),
+    Subtree = get_child(Content),
+    #filter{type = Type,
+            select = Select,
+            subtree = Subtree}.
 
 %%------------------------------------------------------------------------------
 %% Helper functions
 %%------------------------------------------------------------------------------
 
 %% @private
-get_attr_value(Name, Attrs) ->
-    Attribute = lists:keyfind(Name, #xmlAttribute.name, Attrs),
-    Attribute#xmlAttribute.value.
+get_child([]) ->
+    undefined;
+get_child([Child]) ->
+    Child.
+
+%% @private
+get_child(Name, Children) ->
+    case lists:keyfind(Name, 1, Children) of
+        false ->
+            undefined;
+        Child ->
+            Child
+    end.
+
+%% @private
+get_attr(Name, Attrs) ->
+    case lists:keyfind(Name, 1, Attrs) of
+        {Name, Value} ->
+            Value;
+        false ->
+            undefined
+    end.
+
+%% @private
+get_attr(Name, Attrs, ConvertTo) ->
+    Attr = get_attr(Name, Attrs),
+    convert(Attr, ConvertTo).
+
+%% @private
+get_text(Name, Content) ->
+    case lists:keyfind(Name, 1, Content) of
+        {Name, _, [Value]} ->
+            Value;
+        false ->
+            undefined
+    end.
+
+%% @private
+get_text(Name, Content, ConvertTo) ->
+    Text = get_text(Name, Content),
+    convert(Text, ConvertTo).
+
+%% @private
+get_text_array(Name, Content) ->
+    {Name, List} = lists:keyfind(Name, 1, Content),
+    lists:reverse(lists:foldl(fun({_, [Elem]}, Acc) -> 
+                                      [Elem | Acc]
+                              end, [], List)).
+
+%% @private
+convert(Text, To) ->
+    case Text of
+        undefined ->
+            undefined;
+        Text ->
+            case To of
+                string ->
+                    Text;
+                integer ->
+                    list_to_integer(Text);
+                atom ->
+                    list_to_atom(Text)
+            end
+    end.

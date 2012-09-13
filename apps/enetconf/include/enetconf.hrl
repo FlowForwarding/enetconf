@@ -25,62 +25,124 @@
 -define(BASE_CAPABILITY, "urn:ietf:params:netconf:base:1.1").
 -define(BASE_CAPABILITY_OLD, "urn:ietf:params:netconf:base:1.0").
 
--type config() :: startup
-                | candidate
+-type config() :: startup   %% :startup capability
+                | candidate %% :candidate capability
                 | running.
 
+-type url() :: {url, string()}. %% :url capability
+
+-type target() :: config()
+                | url().   %% :url capability
+
+-type source() :: config()
+                | xml()
+                | url().   %% :url capability
+
+-type get_source() :: config()
+                    | url().   %% :url capability
+
 -type filter() :: subtree
-                | xpath.
+                | xpath.  %% :xpath capability
 
 -type default_operation() :: merge
                            | replace
                            | none.
 
--type test_option() :: 'test-then-set'
-                     | set.
+-type test_option() :: test_then_set %% :validate capability
+                     | set.          %% :validate capability
 
--type error_option() :: 'stop-on-error'
-                      | 'continue-on-error'
-                      | 'rollback-on-error'.
+-type error_option() :: stop_on_error
+                      | continue_on_error
+                      | rollback_on_error. %% :rollback-on-error capability
 
--record(filter, {
-          type = subtree :: filter(),
-          select :: string() | undefined
-         }).
+-type xml() :: {atom(), [{atom(), term()}], [xml() | string()]}.
 
 -record(edit_config, {
-          target :: config(),
+          target :: target(),
           default_operation = merge :: default_operation(),
-          test_option :: test_option(),
-          error_option :: error_option()
+          test_option :: test_option() | undefined, %% :validate capability
+          error_option :: error_option() | undefined,
+          config :: xml()
+         }).
+
+-record(filter, {
+          type :: filter(),
+          subtree :: xml() | undefined,
+          select :: string() | undefined %% :xpath capability
          }).
 
 -record(get_config, {
-          source = running :: config(),
+          source :: get_source(),
           filter :: #filter{} | undefined
          }).
 
 -record(copy_config, {
-          source :: config() | {url, string()},
-          target :: config()
+          source :: source(),
+          target :: target()
          }).
 
 -record(delete_config, {
-          target :: config()
+          target :: target()
+         }).
+
+-record(lock, {
+          target :: target()
+         }).
+
+-record(unlock, {
+          target :: target()
+         }).
+
+-record(get, {
+          filter :: #filter{} | undefined
+         }).
+
+-record(close_session, {}).
+
+-record(kill_session, {
+          session_id :: integer()
          }).
 
 -type operation() :: #edit_config{}
                    | #get_config{}
                    | #copy_config{}
-                   | #delete_config{}.
+                   | #delete_config{}
+                   | #lock{}
+                   | #unlock{}
+                   | #get{}
+                   | #close_session{}
+                   | #kill_session{}.
+                   %% | #commit{}          %% :candidate capability
+                   %% | #discard_changes{} %% :candidate capability
+                   %% | #validate{}.       %% :validate capability
 
 -record(rpc, {
           message_id :: string(),
-          operation :: operation()
+          operation :: operation(),
+          attibutes = [] :: [{atom(), term()}]
          }).
 
+-type error_type() :: transport
+                    | rpc
+                    | protocol
+                    | application.
+
+-type error_tag() :: in_use
+                   | invalid_value
+                   | too_big
+                   | missing_attibute.
+
+-record(rpc_error, {
+          type :: error_type(),
+          tag :: error_tag()
+         }).
+
+-record(ok, {}).
+
 -record(rpc_reply, {
-          message_id :: string()
+          message_id :: string(),
+          content :: #ok{} | #rpc_error{},
+          attibutes = [] :: [{atom(), term()}]
          }).
 
 -type rpc() :: #rpc{}
