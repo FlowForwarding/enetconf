@@ -94,7 +94,11 @@ operation({'copy-config', _, Content}) ->
     #copy_config{source = Source,
                  target = Target};
 operation({'delete-config', _, [Content]}) ->
-    #delete_config{target = target(Content)}.
+    #delete_config{target = target(Content)};
+operation({lock, _, [Content]}) ->
+    #lock{target = target(Content)};
+operation({unlock, _, [Content]}) ->
+    #unlock{target = target(Content)}.
 
 %% @private
 get_config_source({source, _, [{url, _, [Url]}]}) ->

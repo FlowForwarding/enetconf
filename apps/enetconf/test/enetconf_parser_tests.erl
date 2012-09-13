@@ -81,6 +81,28 @@
         "  </delete-config>"
         "</rpc>").
 
+-define(LOCK_RPC,
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<rpc message-id=\"5\""
+        "     xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"
+        "  <lock>"
+        "    <target>"
+        "      <running/>"
+        "    </target>"
+        "  </lock>"
+        "</rpc>").
+
+-define(UNLOCK_RPC,
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<rpc message-id=\"6\""
+        "     xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"
+        "  <unlock>"
+        "    <target>"
+        "      <candidate/>"
+        "    </target>"
+        "  </unlock>"
+        "</rpc>").
+
 %% Tests -----------------------------------------------------------------------
 
 parsing_test_() ->
@@ -90,7 +112,9 @@ parsing_test_() ->
      [{"Test the 'edit-config' operation", fun edit_config/0},
       {"Test the 'get-config' operation", fun get_config/0},
       {"Test the 'copy-config' operation", fun copy_config/0},
-      {"Test the 'delete-config' operation", fun delete_config/0}]}.
+      {"Test the 'delete-config' operation", fun delete_config/0},
+      {"Test the 'lock' operation", fun lock/0},
+      {"Test the 'unlock' operation", fun unlock/0}]}.
 
 edit_config() ->
     EditConfig = #edit_config{target = candidate,
@@ -120,6 +144,18 @@ delete_config() ->
     RPC = #rpc{message_id = "4",
                operation = DeleteConfig},
     ?assertEqual({ok, RPC}, enetconf_parser:parse(?DELETE_CONFIG_RPC)).
+
+lock() ->
+    Lock = #lock{target = running},
+    RPC = #rpc{message_id = "5",
+               operation = Lock},
+    ?assertEqual({ok, RPC}, enetconf_parser:parse(?LOCK_RPC)).
+
+unlock() ->
+    Unlock = #unlock{target = candidate},
+    RPC = #rpc{message_id = "6",
+               operation = Unlock},
+    ?assertEqual({ok, RPC}, enetconf_parser:parse(?UNLOCK_RPC)).
 
 %% Fixtures --------------------------------------------------------------------
 
