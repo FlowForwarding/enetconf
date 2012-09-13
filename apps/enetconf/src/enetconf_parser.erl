@@ -98,7 +98,12 @@ operation({'delete-config', _, [Content]}) ->
 operation({lock, _, [Content]}) ->
     #lock{target = target(Content)};
 operation({unlock, _, [Content]}) ->
-    #unlock{target = target(Content)}.
+    #unlock{target = target(Content)};
+operation({'close-session', _, []}) ->
+    #close_session{};
+operation({'kill-session', _, [{'session-id', _, [Content]}]}) ->
+    SessionId = list_to_integer(Content),
+    #kill_session{session_id = SessionId}.
 
 %% @private
 get_config_source({source, _, [{url, _, [Url]}]}) ->

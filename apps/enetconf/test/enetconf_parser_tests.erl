@@ -103,6 +103,22 @@
         "  </unlock>"
         "</rpc>").
 
+-define(CLOSE_SESSION_RPC,
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<rpc message-id=\"8\""
+        "     xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"
+        "  <close-session/>"
+        "</rpc>").
+
+-define(KILL_SESSION_RPC,
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<rpc message-id=\"9\""
+        "     xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"
+        "  <kill-session>"
+	"    <session-id>4</session-id>"
+        "  </kill-session>"
+        "</rpc>").
+
 %% Tests -----------------------------------------------------------------------
 
 parsing_test_() ->
@@ -114,7 +130,9 @@ parsing_test_() ->
       {"Test the 'copy-config' operation", fun copy_config/0},
       {"Test the 'delete-config' operation", fun delete_config/0},
       {"Test the 'lock' operation", fun lock/0},
-      {"Test the 'unlock' operation", fun unlock/0}]}.
+      {"Test the 'unlock' operation", fun unlock/0},
+      {"Test the 'close-session' operation", fun close_session/0},
+      {"Test the 'kill-session' operation", fun kill_session/0}]}.
 
 edit_config() ->
     EditConfig = #edit_config{target = candidate,
@@ -156,6 +174,18 @@ unlock() ->
     RPC = #rpc{message_id = "6",
                operation = Unlock},
     ?assertEqual({ok, RPC}, enetconf_parser:parse(?UNLOCK_RPC)).
+
+close_session() ->
+    CloseSession = #close_session{},
+    RPC = #rpc{message_id = "8",
+	       operation = CloseSession},
+    ?assertEqual({ok, RPC}, enetconf_parser:parse(?CLOSE_SESSION_RPC)).
+
+kill_session() ->
+    KillSession = #kill_session{session_id = 4},
+    RPC = #rpc{message_id = "9",
+	       operation = KillSession},
+    ?assertEqual({ok, RPC}, enetconf_parser:parse(?KILL_SESSION_RPC)).
 
 %% Fixtures --------------------------------------------------------------------
 
