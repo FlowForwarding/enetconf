@@ -99,11 +99,12 @@ operation({lock, _, [Content]}) ->
     #lock{target = target(Content)};
 operation({unlock, _, [Content]}) ->
     #unlock{target = target(Content)};
+operation({get, _, Content}) ->
+    #get{filter = filter(get_child(filter, Content))};
 operation({'close-session', _, []}) ->
     #close_session{};
 operation({'kill-session', _, [{'session-id', _, [Content]}]}) ->
-    SessionId = list_to_integer(Content),
-    #kill_session{session_id = SessionId}.
+    #kill_session{session_id = list_to_integer(Content)}.
 
 %% @private
 get_config_source({source, _, [{url, _, [Url]}]}) ->
@@ -132,6 +133,7 @@ filter({filter, Attrs, Content}) ->
     Type = get_attr(type, Attrs, atom),
     case Type of
 	subtree ->
+	    %% FIXME: Impossible with current schema. Will crash.
 	    Subtree = get_child(Content),
 	    {subtree, Subtree};
 	xpath ->

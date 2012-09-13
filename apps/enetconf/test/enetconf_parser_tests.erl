@@ -103,6 +103,15 @@
         "  </unlock>"
         "</rpc>").
 
+-define(GET_RPC,
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<rpc message-id=\"7\""
+        "     xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"
+        "  <get>"
+	"    <filter type=\"xpath\" select=\"/test-filter\"/>"
+        "  </get>"
+        "</rpc>").
+
 -define(CLOSE_SESSION_RPC,
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         "<rpc message-id=\"8\""
@@ -131,6 +140,7 @@ parsing_test_() ->
       {"Test the 'delete-config' operation", fun delete_config/0},
       {"Test the 'lock' operation", fun lock/0},
       {"Test the 'unlock' operation", fun unlock/0},
+      {"Test the 'get' operation", fun get/0},
       {"Test the 'close-session' operation", fun close_session/0},
       {"Test the 'kill-session' operation", fun kill_session/0}]}.
 
@@ -162,6 +172,13 @@ delete_config() ->
     RPC = #rpc{message_id = "4",
                operation = DeleteConfig},
     ?assertEqual({ok, RPC}, enetconf_parser:parse(?DELETE_CONFIG_RPC)).
+
+get() ->
+    Filter = {xpath, "/test-filter"},
+    Get = #get{filter = Filter},
+    RPC = #rpc{message_id = "7",
+               operation = Get},
+    ?assertEqual({ok, RPC}, enetconf_parser:parse(?GET_RPC)).
 
 lock() ->
     Lock = #lock{target = running},
