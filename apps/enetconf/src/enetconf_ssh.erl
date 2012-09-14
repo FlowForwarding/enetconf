@@ -193,8 +193,7 @@ execute(#rpc{message_id = MessageId}, _Callback) ->
 
 %% @private
 get_session_id() ->
-    %% TODO: Create global session-id counter
-    1.
+    ets:update_counter(enetconf, session_id, {2, 1, 65536, 0}).
 
 %% @private
 get_server_capabilities(SessionId) ->

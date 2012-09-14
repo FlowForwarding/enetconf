@@ -47,6 +47,7 @@ setup() ->
     {ok, State} = xmerl_xsd:process_schema(SchemaPath),
     ets:new(enetconf, [named_table, set, public, {read_concurrency, true}]),
     ets:insert(enetconf, {schema, State}),
+    ets:insert(enetconf, {session_id, -1}),
 
     error_logger:tty(false),
     application:set_env(enetconf, capabilities, ?SERVER_CAPABILITIES),
@@ -72,7 +73,7 @@ exchange_hellos(C) ->
     
     %% Wait for hello
     Message = wait_for_message(C, eom),
-    ?assertEqual(enetconf_xml:hello(?SERVER_CAPABILITIES, 1), Message).
+    ?assertEqual(enetconf_xml:hello(?SERVER_CAPABILITIES, 0), Message).
 
 close_session(C) ->
     %% Send close-session
