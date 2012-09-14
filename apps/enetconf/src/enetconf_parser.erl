@@ -132,13 +132,13 @@ filter(undefined) ->
 filter({filter, Attrs, Content}) ->
     Type = get_attr(type, Attrs, atom),
     case Type of
-	subtree ->
-	    %% FIXME: Impossible with current schema. Will crash.
-	    Subtree = get_child(Content),
-	    {subtree, Subtree};
-	xpath ->
-	    Select = get_attr(select, Attrs),
-	    {xpath, Select}
+        subtree ->
+            %% FIXME: Impossible with current schema. Will crash.
+            Subtree = get_child(Content),
+            {subtree, Subtree};
+        xpath ->
+            Select = get_attr(select, Attrs),
+            {xpath, Select}
     end.
 
 %%------------------------------------------------------------------------------

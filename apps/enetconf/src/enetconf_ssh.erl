@@ -141,13 +141,17 @@ handle_messages(Data, #state{connection_ref = ConnRef, channel_id = ChannelId,
     [begin
          ?INFO("Received: ~p~n", [Msg]),
          case parse_xml(Msg, Callback) of
-             {ok, Reply} ->
-                 {ok, EncodedReply} = Module:encode(Reply),
-                 ssh_connection:send(ConnRef, ChannelId, EncodedReply);
+             {ok, MessageId} ->
+                 Ok = enetconf_xml:ok(MessageId),
+                 send(ConnRef, ChannelId, Module, Ok);
              {error, _Reason} ->
                  %% TODO: Return some errors
                  %% enetconf_xml:rpc_error(Reason)
-                 error
+                 error;
+             {close, MessageId} ->
+                 Ok = enetconf_xml:ok(MessageId),
+                 send(ConnRef, ChannelId, Module, Ok),
+                 close(ConnRef, ChannelId)
          end
      end || Msg <- Messages],
 
@@ -156,11 +160,11 @@ handle_messages(Data, #state{connection_ref = ConnRef, channel_id = ChannelId,
 %% @private
 parse_xml(XML, Callback) ->
     try
-        Operation = enetconf_parser:parse(XML),
+        {ok, Operation} = enetconf_parser:parse(binary_to_list(XML)),
         case Callback of
-            undefined ->
-                %% TODO: No callback specified
-                {error, no_callback_module};
+            %% TODO: No callback specified
+            %% undefined ->
+            %%     {error, no_callback_module};
             Callback ->
                 execute(Operation, Callback)
         end
@@ -176,9 +180,12 @@ parse_xml(XML, Callback) ->
 %% @private
 execute(#hello{}, _) ->
     rpc_error;
+execute(#rpc{message_id = MessageId,
+             operation = #close_session{}}, _) ->
+    {close, MessageId};
 execute(#rpc{message_id = MessageId}, _Callback) ->
     %% TODO: Execute received operations using the callback module
-    {ok, enetconf_xml:ok(MessageId)}.
+    {ok, MessageId}.
 
 %%------------------------------------------------------------------------------
 %% Helper functions
@@ -192,7 +199,7 @@ get_session_id() ->
 %% @private
 get_server_capabilities(SessionId) ->
     {ok, Capabilities} = application:get_env(enetconf, capabilities),
-    enetconf_xml:capabilities(Capabilities, SessionId).
+    enetconf_xml:hello(Capabilities, SessionId).
 
 %% @private
 get_parser_module(#hello{capabilities = Capabilities}) ->
@@ -207,3 +214,10 @@ get_parser_module(#hello{capabilities = Capabilities}) ->
                     {error, bad_version}
             end
     end.
+
+send(Conn, Channel, Module, Message) ->
+    {ok, EncodedMessage} = Module:encode(Message),
+    ssh_connection:send(Conn, Channel, EncodedMessage).
+
+close(Conn, Channel) ->
+    ssh_connection:close(Conn, Channel).

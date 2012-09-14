@@ -22,8 +22,9 @@
 
 %% API
 -export([ok/1,
-         capabilities/1,
-         capabilities/2]).
+         hello/1,
+         hello/2,
+         close_session/1]).
 -export([to_simple_form/1]).
 
 -include_lib("xmerl/include/xmerl.hrl").
@@ -43,21 +44,25 @@ ok(MessageId) ->
             [{ok, [], []}]}).
 
 %% @doc Returns hello message with list of available capabilities.
--spec capabilities([string()]) -> binary().
-capabilities(Capabilities) ->
+-spec hello([string()]) -> binary().
+hello(Capabilities) ->
     export({hello, [?NS],
             [{capabilities, [],
               [{capability, [], [?BASE_CAPABILITY]}
                | [{capability, [], [Cap]} || Cap <- Capabilities]]}]}).
 
 %% @doc Returns hello message with list of available capabilities + session-id.
--spec capabilities([string()], integer()) -> binary().
-capabilities(Capabilities, SessionId) ->
+-spec hello([string()], integer()) -> binary().
+hello(Capabilities, SessionId) ->
     export({hello, [?NS],
             [{capabilities, [],
               [{capability, [], [?BASE_CAPABILITY]}
                | [{capability, [], [Cap]} || Cap <- Capabilities]]},
              {'session-id', [], [integer_to_list(SessionId)]}]}).
+
+close_session(MessageId) ->
+    export({rpc, [{'message-id', MessageId}, ?NS],
+            [{'close-session', [], []}]}).
 
 %% @doc Convert XML records returned by xmerl to a simple form tuples.
 %% It will output only the xmlElement and xmlText records and skip all the

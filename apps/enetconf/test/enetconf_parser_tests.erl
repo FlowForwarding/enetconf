@@ -122,7 +122,7 @@
         "<rpc message-id=\"7\""
         "     xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"
         "  <get>"
-	"    <filter type=\"xpath\" select=\"/test-filter\"/>"
+        "    <filter type=\"xpath\" select=\"/test-filter\"/>"
         "  </get>"
         "</rpc>").
 
@@ -138,7 +138,7 @@
         "<rpc message-id=\"9\""
         "     xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"
         "  <kill-session>"
-	"    <session-id>4</session-id>"
+        "    <session-id>4</session-id>"
         "  </kill-session>"
         "</rpc>").
 
@@ -217,13 +217,13 @@ unlock() ->
 close_session() ->
     CloseSession = #close_session{},
     RPC = #rpc{message_id = "8",
-	       operation = CloseSession},
+               operation = CloseSession},
     ?assertEqual({ok, RPC}, enetconf_parser:parse(?CLOSE_SESSION_RPC)).
 
 kill_session() ->
     KillSession = #kill_session{session_id = 4},
     RPC = #rpc{message_id = "9",
-	       operation = KillSession},
+               operation = KillSession},
     ?assertEqual({ok, RPC}, enetconf_parser:parse(?KILL_SESSION_RPC)).
 
 %% Fixtures --------------------------------------------------------------------

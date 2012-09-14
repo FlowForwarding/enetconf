@@ -25,25 +25,7 @@
 
 -define(PORT, 8830).
 -define(TIMEOUT, 1000).
-
--define(HELLO,
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-        "<hello xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"
-        "  <capabilities>"
-        "    <capability>"
-        "      urn:ietf:params:netconf:base:1.1"
-        "    </capability>"
-        "  </capabilities>"
-        "</hello>]]>]]>").
-
--define(SERVER_HELLO,
-        <<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-          "<hello xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"
-          "<capabilities>"
-          "<capability>urn:ietf:params:netconf:base:1.1</capability>"
-          "</capabilities>"
-          "<session-id>1</session-id>"
-          "</hello>]]>]]>">>).
+-define(SERVER_CAPABILITIES, []).
 
 %% Tests -----------------------------------------------------------------------
 
@@ -51,36 +33,23 @@ ssh_test_() ->
     {setup,
      fun setup/0,
      fun teardown/1,
-     [{"Connect to SSH server and exchange hellos", fun hello/0}]}.
+     [{"Connect to SSH server, exchange hellos, close session", fun hello/0}]}.
 
 hello() ->
-    %% Connect to SSH server
-    Config = [{user, "test"}, {password, "test"},
-              {silently_accept_hosts, true}],
-    {ok, Ref} = ssh:connect("localhost", ?PORT, Config),
-    {ok, Channel} = ssh_connection:session_channel(Ref, ?TIMEOUT),
-    success = ssh_connection:subsystem(Ref, Channel, "netconf", ?TIMEOUT),
+    C = connect(),
+    exchange_hellos(C),
+    close_session(C).
 
-    %% Send hello
-    ClientCapabilities = enetconf_xml:capabilities([]),
-    {ok, EncCapabilities} = enetconf_fm_eom:encode(ClientCapabilities),
-    ssh_connection:send(Ref, Channel, EncCapabilities),
-
-    %% Wait for hello
-    receive
-        {ssh_cm, Ref, {data, Channel, 0, Message}} ->
-            ok
-    after
-        ?TIMEOUT ->
-            Message = timeout
-    end,
-
-    ?assertEqual(?SERVER_HELLO, Message),
-    {Ref, Channel}.
+%% Fixtures --------------------------------------------------------------------
 
 setup() ->
+    SchemaPath = filename:join(code:priv_dir(enetconf), "netconf-1.0.xsd"),
+    {ok, State} = xmerl_xsd:process_schema(SchemaPath),
+    ets:new(enetconf, [named_table, set, public, {read_concurrency, true}]),
+    ets:insert(enetconf, {schema, State}),
+
     error_logger:tty(false),
-    application:set_env(enetconf, capabilities, []),
+    application:set_env(enetconf, capabilities, ?SERVER_CAPABILITIES),
     application:set_env(enetconf, callback_module, undefined),
     application:start(ssh),
     Config = [{system_dir, filename:join([code:priv_dir(enetconf), "sshd"])},
@@ -94,3 +63,51 @@ setup() ->
 teardown(Ref) ->
     exit(Ref, kill),
     application:stop(ssh).
+
+%% Helper functions ------------------------------------------------------------
+
+exchange_hellos(C) ->
+    %% Send hello
+    send(C, enetconf_xml:hello([]), eom),
+    
+    %% Wait for hello
+    Message = wait_for_message(C, eom),
+    ?assertEqual(enetconf_xml:hello(?SERVER_CAPABILITIES, 1), Message).
+
+close_session(C) ->
+    %% Send close-session
+    send(C, enetconf_xml:close_session("123"), chunked),
+
+    %% Wait for ok
+    Message = wait_for_message(C, chunked),
+    ?assertEqual(enetconf_xml:ok("123"), Message).
+
+connect() ->
+    %% Connect to SSH server
+    Config = [{user, "test"}, {password, "test"},
+              {silently_accept_hosts, true}],
+    {ok, Ref} = ssh:connect("localhost", ?PORT, Config),
+    {ok, Channel} = ssh_connection:session_channel(Ref, ?TIMEOUT),
+    success = ssh_connection:subsystem(Ref, Channel, "netconf", ?TIMEOUT),
+    {Ref, Channel}.
+
+send({Ref, Channel}, Message, FM) ->
+    Module = parser(FM),
+    {ok, EncodedMessage} = Module:encode(Message),
+    ssh_connection:send(Ref, Channel, EncodedMessage).
+
+wait_for_message({Ref, Channel}, FM) ->
+    receive
+        {ssh_cm, Ref, {data, Channel, 0, Data}} ->
+            Module = parser(FM),
+            {ok, [Message], _} = Module:decode(Data),
+            Message
+    after
+        ?TIMEOUT ->
+            timeout
+    end.
+
+parser(eom) ->
+    enetconf_fm_eom;
+parser(chunked) ->
+    enetconf_fm_chunked.
