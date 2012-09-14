@@ -28,6 +28,20 @@
 
 %% Test XMLs -------------------------------------------------------------------
 
+-define(HELLO,
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<hello xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"
+        "  <capabilities>"
+        "    <capability>"
+        "      urn:ietf:params:netconf:base:1.1"
+        "    </capability>"
+        "    <capability>"
+        "      urn:ietf:params:netconf:capability:url:1.0"
+        "    </capability>"
+        "  </capabilities>"
+        "  <session-id>1</session-id>"
+        "</hello>").
+
 -define(EDIT_CONFIG_RPC,
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         "<rpc message-id=\"1\""
@@ -134,15 +148,23 @@ parsing_test_() ->
     {setup,
      fun setup/0,
      fun teardown/1,
-     [{"Test the 'edit-config' operation", fun edit_config/0},
-      {"Test the 'get-config' operation", fun get_config/0},
-      {"Test the 'copy-config' operation", fun copy_config/0},
-      {"Test the 'delete-config' operation", fun delete_config/0},
-      {"Test the 'lock' operation", fun lock/0},
-      {"Test the 'unlock' operation", fun unlock/0},
-      {"Test the 'get' operation", fun get/0},
-      {"Test the 'close-session' operation", fun close_session/0},
-      {"Test the 'kill-session' operation", fun kill_session/0}]}.
+     [{"Test hello message", fun hello/0},
+      {"Test rpc 'edit-config' operation", fun edit_config/0},
+      {"Test rpc 'get-config' operation", fun get_config/0},
+      {"Test rpc 'copy-config' operation", fun copy_config/0},
+      {"Test rpc 'delete-config' operation", fun delete_config/0},
+      {"Test rpc 'lock' operation", fun lock/0},
+      {"Test rpc 'unlock' operation", fun unlock/0},
+      {"Test rpc 'get' operation", fun get/0},
+      {"Test rpc 'close-session' operation", fun close_session/0},
+      {"Test rpc 'kill-session' operation", fun kill_session/0}]}.
+
+hello() ->
+    Capabilities = ["urn:ietf:params:netconf:base:1.1",
+                    "urn:ietf:params:netconf:capability:url:1.0"],
+    Hello = #hello{capabilities = Capabilities,
+                   session_id = 1},
+    ?assertEqual({ok, Hello}, enetconf_parser:parse(?HELLO)).
 
 edit_config() ->
     EditConfig = #edit_config{target = candidate,

@@ -190,8 +190,8 @@ get_text(Name, Content, ConvertTo) ->
 
 %% @private
 get_text_array(Name, Content) ->
-    {Name, List} = lists:keyfind(Name, 1, Content),
-    lists:reverse(lists:foldl(fun({_, [Elem]}, Acc) -> 
+    {Name, _, List} = lists:keyfind(Name, 1, Content),
+    lists:reverse(lists:foldl(fun({_, _, [Elem]}, Acc) ->
                                       [Elem | Acc]
                               end, [], List)).
 
