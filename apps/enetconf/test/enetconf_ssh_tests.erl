@@ -36,9 +36,10 @@ ssh_test_() ->
      [{"Basic connectivity", fun hello/0}]}.
 
 hello() ->
-    {ok, C} = enetconf_client:connect("localhost", [{port, ?PORT},
-                                                    {user, "test"},
-                                                    {password, "test"}]),
+    Opts = [{port, ?PORT},
+            {user, "test"}, {password, "test"},
+            {silently_accept_hosts, true}],
+    {ok, C} = enetconf_client:connect("localhost", Opts),
     {ok, Ok} = enetconf_client:close_session(C),
     ?assertEqual(enetconf_xml:ok("0"), Ok),
     ?assertNot(is_process_alive(C)).
