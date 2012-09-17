@@ -3,8 +3,8 @@
 compile: rebar
 	@./rebar compile
 
-test: rebar
-	@./rebar eunit [app=enetconf]
+test: rebar compile
+	@./rebar eunit
 
 clean: rebar
 	@./rebar clean
