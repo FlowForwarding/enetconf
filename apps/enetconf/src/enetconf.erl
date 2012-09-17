@@ -68,12 +68,19 @@ start_ssh_daemon() ->
     {ok, IP} = application:get_env(sshd_ip),
     {ok, Port} = application:get_env(sshd_port),
     {ok, Passwords} = application:get_env(sshd_user_passwords),
-    {ok, ShellMFA} = application:get_env(sshd_shell),
 
     %% Start the daemon
     ssh:daemon(IP, Port,
                [{system_dir, filename:join([code:priv_dir(enetconf), "sshd"])},
                 {user_dir, filename:join([code:priv_dir(enetconf), "sshd"])},
-                {shell, ShellMFA},
+                %% Because NETCONF communication is handled as a separate
+                %% subsystem, regular ssh shell is unavailable for the client.
+                %% SSH connection _must_ always be initialized by the client
+                %% with netconf subsystem like the following example:
+                %% 'ssh guest@127.0.0.1 -p 830 -s netconf'
+                %% Any attempt to connect to the regular ssh shell will be
+                %% silently dropped and connection will be terminated by the
+                %% server.
+                {shell, {unavailable, unavailable, []}},
                 {subsystems, [{"netconf", {enetconf_ssh, []}}]},
                 {user_passwords, Passwords}]).
