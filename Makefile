@@ -4,7 +4,7 @@ compile: rebar
 	@./rebar compile
 
 test: rebar
-	@./rebar eunit
+	@./rebar eunit [app=enetconf]
 
 clean: rebar
 	@./rebar clean

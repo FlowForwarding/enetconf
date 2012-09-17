@@ -25,6 +25,7 @@
 
 %% Application callbacks
 -export([start/2,
+         prep_stop/1,
          stop/1]).
 
 %%------------------------------------------------------------------------------
@@ -39,8 +40,12 @@ start(_, _) ->
     {ok, Pid, Pid}.
 
 %% @private
-stop(Pid) ->
+prep_stop(Pid) ->
     ssh:stop_daemon(Pid),
+    Pid.
+
+%% @private
+stop(_Pid) ->
     ets:delete(enetconf).
 
 %%------------------------------------------------------------------------------
