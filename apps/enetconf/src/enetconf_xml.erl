@@ -24,6 +24,10 @@
 -export([ok/1,
          hello/1,
          hello/2,
+         get_config/3,
+         edit_config/3,
+         copy_config/3,
+         delete_config/2,
          close_session/1]).
 -export([to_simple_form/1]).
 
@@ -60,6 +64,29 @@ hello(Capabilities, SessionId) ->
                | [{capability, [], [Cap]} || Cap <- Capabilities]]},
              {'session-id', [], [integer_to_list(SessionId)]}]}).
 
+get_config(MessageId, Source, Filter) ->
+    export({rpc, [{'message-id', MessageId}, ?NS],
+            [{'get-config', [],
+              [{source, [], [get_config_source(Source)]}]
+              ++ [filter(Filter) || Filter /= undefined]}]}).
+
+edit_config(MessageId, Target, Config) ->
+    export({rpc, [{'message-id', MessageId}, ?NS],
+            [{'edit-config', [],
+              [{target, [], [target(Target)]},
+               {config, [], [config(Config)]}]}]}).
+
+copy_config(MessageId, Source, Target) ->
+    export({rpc, [{'message-id', MessageId}, ?NS],
+            [{'copy-config', [],
+              [{target, [], [target(Target)]},
+               {source, [], [source(Source)]}]}]}).
+
+delete_config(MessageId, Target) ->
+    export({rpc, [{'message-id', MessageId}, ?NS],
+            [{'delete-config', [],
+              [{target, [], [target(Target)]}]}]}).
+
 close_session(MessageId) ->
     export({rpc, [{'message-id', MessageId}, ?NS],
             [{'close-session', [], []}]}).
@@ -78,12 +105,44 @@ to_simple_form(Elements) when is_list(Elements) ->
     content(Elements).
 
 %%------------------------------------------------------------------------------
-%% Internal functions
+%% Simple form creation functions
 %%------------------------------------------------------------------------------
 
 %% @private
-export(SimpleFormXml) ->
-    list_to_binary(xmerl:export_simple([SimpleFormXml], xmerl_xml, [?PROLOG])).
+source({url, Url}) ->
+    {url, [], [Url]};
+source({xml, XML}) ->
+    XML;
+source(Name) ->
+    {Name, [], []}.
+
+%% @private
+get_config_source({url, Url}) ->
+    {url, [], [Url]};
+get_config_source(Name) ->
+    {Name, [], []}.
+
+%% @private
+target({url, Url}) ->
+    {url, [], [Url]};
+target(Name) ->
+    {Name, [], []}.
+
+%% @private
+config({xml, XML}) ->
+    to_simple_form(XML);
+config({url, Url}) ->
+    {url, [], [Url]}.
+
+%% @private
+filter({subtree, Subtree}) ->
+    {filter, [{type, subtree}], [to_simple_form(Subtree)]};
+filter({xpath, Select}) ->
+    {filter, [{type, xpath}, {select, Select}], []}.
+
+%%------------------------------------------------------------------------------
+%% Simple form conversion functions
+%%------------------------------------------------------------------------------
 
 %% @private
 content(Elements) ->
@@ -106,3 +165,11 @@ content([_ | Rest], SimpleForms) ->
 %% @private
 attributes(Attrs) ->
     [{Name, Value} || #xmlAttribute{name = Name, value = Value} <- Attrs].
+
+%%------------------------------------------------------------------------------
+%% Helper functions
+%%------------------------------------------------------------------------------
+
+%% @private
+export(SimpleFormXml) ->
+    list_to_binary(xmerl:export_simple([SimpleFormXml], xmerl_xml, [?PROLOG])).

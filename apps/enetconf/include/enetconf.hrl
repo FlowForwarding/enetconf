@@ -25,21 +25,21 @@
 -define(BASE_CAPABILITY, "urn:ietf:params:netconf:base:1.1").
 -define(BASE_CAPABILITY_OLD, "urn:ietf:params:netconf:base:1.0").
 
--type config() :: startup   %% :startup capability
-                | candidate %% :candidate capability
-                | running.
+-type config_name() :: startup   %% :startup capability
+                     | candidate %% :candidate capability
+                     | running.
 
 -type url() :: {url, string()}. %% :url capability
 
--type target() :: config()
+-type target() :: config_name()
                 | url().   %% :url capability
 
--type source() :: config()
+-type source() :: config_name()
                 | xml()
                 | url().   %% :url capability
 
--type get_source() :: config()
-                    | url().   %% :url capability
+-type get_config_source() :: config_name()
+                           | url().   %% :url capability
 
 -type filter() :: {subtree, xml()}
                 | {xpath, string()} %% :xpath capability
@@ -58,6 +58,9 @@
                       | rollback_on_error %% :rollback-on-error capability
                       | undefined.
 
+-type config() :: xml()
+                | {url, string()}. %% :url capability
+
 -type xml() :: {xml, record()}.
 
 -record(edit_config, {
@@ -65,11 +68,11 @@
           default_operation = merge :: default_operation(),
           test_option :: test_option(), %% :validate capability
           error_option :: error_option(),
-          config :: xml()
+          config :: config()
          }).
 
 -record(get_config, {
-          source :: get_source(),
+          source :: get_config_source(),
           filter :: filter()
          }).
 

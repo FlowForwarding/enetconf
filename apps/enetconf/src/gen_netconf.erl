@@ -25,12 +25,12 @@
 
 -type error() :: {error, Reason :: term()}.
 
--callback handle_get_config(Source :: get_source(),
+-callback handle_get_config(Source :: get_config_source(),
                             Filter :: filter()) -> {ok, Config :: xml()} |
                                                    error().
 
 -callback handle_edit_config(Target :: target(),
-                             Config :: xml()) -> ok | error().
+                             Config :: config()) -> ok | error().
 
 -callback handle_delete_config(Target :: target()) -> ok | error().
 
@@ -42,7 +42,3 @@
 -callback handle_unlock(Target :: target()) -> ok | error().
 
 -callback handle_get(Filter :: filter()) -> {ok, Config :: xml()} | error().
-
--callback handle_close_session() -> any().
-
--callback handle_kill_session(SessionId :: integer()) -> ok | error().
