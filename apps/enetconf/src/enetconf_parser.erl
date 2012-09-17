@@ -45,10 +45,7 @@ parse(XML) ->
             {error, ValidationError} ->
                 throw({error, {validate, ValidationError}});
             {ValidatedXML, _} ->
-                %% Convert to simple form
-                SimpleXML = enetconf_xml:to_simple_form(ValidatedXML),
-
-                do_parse(SimpleXML)
+                do_parse(process(ValidatedXML))
         end
     catch
         _:{'EXIT', {fatal, {ScanError, _, _, _}}} ->
@@ -62,19 +59,19 @@ parse(XML) ->
 %%------------------------------------------------------------------------------
 
 %% @private
-do_parse({rpc, Attrs, [Content]}) ->
+do_parse(#xmlElement{name = rpc, attributes = Attrs, content = [Content]}) ->
     MessageId = get_attr('message-id', Attrs),
     Operation = operation(Content),
     {ok, #rpc{message_id = MessageId,
               operation = Operation}};
-do_parse({hello, _, Content}) ->
+do_parse(#xmlElement{name = hello, content = Content}) ->
     Capabilities = get_text_array(capabilities, Content),
     SessionId = get_text('session-id', Content, integer),
     {ok, #hello{capabilities = Capabilities,
                 session_id = SessionId}}.
 
 %% @private
-operation({'edit-config', _, Content}) ->
+operation(#xmlElement{name = 'edit-config', content = Content}) ->
     Target = target(get_child(target, Content)),
     Operation = get_text('default-operation', Content, atom),
     Test = get_text('test-option', Content, atom),
@@ -83,53 +80,67 @@ operation({'edit-config', _, Content}) ->
                  default_operation = Operation,
                  test_option = Test,
                  error_option = Error};
-operation({'get-config', _, Content}) ->
+operation(#xmlElement{name = 'get-config', content = Content}) ->
     Source = get_config_source(get_child(source, Content)),
     Filter = filter(get_child(filter, Content)),
     #get_config{source = Source,
                 filter = Filter};
-operation({'copy-config', _, Content}) ->
+operation(#xmlElement{name = 'copy-config', content = Content}) ->
     Source = source(get_child(source, Content)),
     Target = target(get_child(target, Content)),
     #copy_config{source = Source,
                  target = Target};
-operation({'delete-config', _, [Content]}) ->
+operation(#xmlElement{name = 'delete-config', content = [Content]}) ->
     #delete_config{target = target(Content)};
-operation({lock, _, [Content]}) ->
+operation(#xmlElement{name = lock, content = [Content]}) ->
     #lock{target = target(Content)};
-operation({unlock, _, [Content]}) ->
+operation(#xmlElement{name = unlock, content = [Content]}) ->
     #unlock{target = target(Content)};
-operation({get, _, Content}) ->
+operation(#xmlElement{name = get, content = Content}) ->
     #get{filter = filter(get_child(filter, Content))};
-operation({'close-session', _, []}) ->
+operation(#xmlElement{name = 'close-session'}) ->
     #close_session{};
-operation({'kill-session', _, [{'session-id', _, [Content]}]}) ->
-    #kill_session{session_id = list_to_integer(Content)}.
+operation(#xmlElement{name = 'kill-session', content = Content}) ->
+    #kill_session{session_id = get_text('session-id', Content, integer)}.
 
 %% @private
-get_config_source({source, _, [{url, _, [Url]}]}) ->
+get_config_source(#xmlElement{name = source,
+                              content = [#xmlElement{name = url,
+                                                     content = [Content]}]}) ->
+    #xmlText{value = Url} = Content,
     {url, Url};
-get_config_source({source, _, [{Tag, _, _}]}) ->
+get_config_source(#xmlElement{name = source,
+                              content = [#xmlElement{name = Tag}]}) ->
     Tag.
 
 %% @private
-source({source, _, [{url, _, [Url]}]}) ->
+source(#xmlElement{name = source,
+                   content = [#xmlElement{name = url,
+                                          content = [Content]}]}) ->
+    #xmlText{value = Url} = Content,
     {url, Url};
-source({source, _, [{config, _, [Config]}]}) ->
-    Config;
-source({source, _, [{Tag, _, _}]}) ->
+source(#xmlElement{name = source,
+                   content = [#xmlElement{name = config,
+                                          content = [Config]}]}) ->
+    {xml, Config};
+source(#xmlElement{name = source,
+                   content = [#xmlElement{name = Tag}]}) ->
     Tag.
 
 %% @private
-target({target, _, [{url, _, [Url]}]}) ->
+target(#xmlElement{name = target,
+                   content = [#xmlElement{name = url,
+                                          content = [Content]}]}) ->
+    #xmlText{value = Url} = Content,
     {url, Url};
-target({target, _, [{Tag, _, _}]}) ->
+target(#xmlElement{name = target,
+                   content = [#xmlElement{name = Tag}]}) ->
     Tag.
 
 %% @private
 filter(undefined) ->
     undefined;
-filter({filter, Attrs, Content}) ->
+filter(#xmlElement{name = filter, attributes = Attrs, content = Content}) ->
     Type = get_attr(type, Attrs, atom),
     case Type of
         subtree ->
@@ -153,7 +164,7 @@ get_child([Child]) ->
 
 %% @private
 get_child(Name, Children) ->
-    case lists:keyfind(Name, 1, Children) of
+    case lists:keyfind(Name, #xmlElement.name, Children) of
         false ->
             undefined;
         Child ->
@@ -162,8 +173,8 @@ get_child(Name, Children) ->
 
 %% @private
 get_attr(Name, Attrs) ->
-    case lists:keyfind(Name, 1, Attrs) of
-        {Name, Value} ->
+    case lists:keyfind(Name, #xmlAttribute.name, Attrs) of
+        #xmlAttribute{name = Name, value = Value} ->
             Value;
         false ->
             undefined
@@ -176,8 +187,8 @@ get_attr(Name, Attrs, ConvertTo) ->
 
 %% @private
 get_text(Name, Content) ->
-    case lists:keyfind(Name, 1, Content) of
-        {Name, _, [Value]} ->
+    case lists:keyfind(Name, #xmlElement.name, Content) of
+        #xmlElement{name = Name, content = [#xmlText{value = Value}]} ->
             Value;
         false ->
             undefined
@@ -190,10 +201,12 @@ get_text(Name, Content, ConvertTo) ->
 
 %% @private
 get_text_array(Name, Content) ->
-    {Name, _, List} = lists:keyfind(Name, 1, Content),
-    lists:reverse(lists:foldl(fun({_, _, [Elem]}, Acc) ->
-                                      [Elem | Acc]
-                              end, [], List)).
+    #xmlElement{content = List} = lists:keyfind(Name, #xmlElement.name,
+                                                Content),
+    Fun = fun(#xmlElement{content = [#xmlText{value = Value}]}, Acc) ->
+                  [Value | Acc]
+          end,
+    lists:reverse(lists:foldl(Fun, [], List)).
 
 %% @private
 convert(Text, To) ->
@@ -210,3 +223,33 @@ convert(Text, To) ->
                     list_to_atom(Text)
             end
     end.
+
+%% @private
+process(#xmlElement{attributes = Attrs, content = Content} = XML) ->
+    XML#xmlElement{attributes = attributes(Attrs, []),
+                   content = content(Content, [])};
+process(#xmlText{value = Value} = XML) ->
+    XML#xmlText{value = string:strip(Value)}.
+
+%% @private
+attributes([], Attrs) ->
+    lists:reverse(Attrs);
+attributes([#xmlAttribute{value = Value} = Attr | Rest], Attrs) ->
+    NewAttr = Attr#xmlAttribute{value = string:strip(Value)},
+    attributes(Rest, [NewAttr | Attrs]).
+
+%% @private
+content([], Content) ->
+    lists:reverse(Content);
+content([#xmlElement{} = Element | Rest], Content) ->
+    content(Rest, [process(Element) | Content]);
+content([#xmlText{} = Text | Rest], Content) ->
+    NewText = process(Text),
+    case NewText#xmlText.value of
+        "" ->
+            content(Rest, Content);
+        _Else ->
+            content(Rest, [NewText | Content])
+    end;
+content([_ | Rest], Content) ->
+    content(Rest, Content).

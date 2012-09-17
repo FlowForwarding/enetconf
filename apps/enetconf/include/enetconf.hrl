@@ -58,7 +58,7 @@
                       | rollback_on_error %% :rollback-on-error capability
                       | undefined.
 
--type xml() :: {atom(), [{atom(), term()}], [xml() | string()]}.
+-type xml() :: {xml, record()}.
 
 -record(edit_config, {
           target :: target(),
