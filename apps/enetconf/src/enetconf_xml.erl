@@ -95,46 +95,34 @@ hello(Capabilities, SessionId) ->
 %% Operations ------------------------------------------------------------------
 
 get_config(MessageId, Source, Filter) ->
-    export({rpc, [{'message-id', MessageId}, ?NS],
-            [{'get-config', [],
-              [{source, [], [get_config_source(Source)]}]
-              ++ [filter(Filter) || Filter /= undefined]}]}).
+    rpc(MessageId, [{'get-config',
+                     [{source, [get_config_source(Source)]}]
+                     ++ [filter(Filter) || Filter /= undefined]}]).
 
 edit_config(MessageId, Target, Config) ->
-    export({rpc, [{'message-id', MessageId}, ?NS],
-            [{'edit-config', [],
-              [{target, [], [target(Target)]},
-               {config, [], [config(Config)]}]}]}).
+    rpc(MessageId, [{'edit-config',
+                     [{target, [target(Target)]},
+                      {config, [config(Config)]}]}]).
 
 copy_config(MessageId, Source, Target) ->
-    export({rpc, [{'message-id', MessageId}, ?NS],
-            [{'copy-config', [],
-              [{target, [], [target(Target)]},
-               {source, [], [source(Source)]}]}]}).
+    rpc(MessageId, [{'copy-config',
+                     [{target, [target(Target)]},
+                      {source, [source(Source)]}]}]).
 
 delete_config(MessageId, Target) ->
-    export({rpc, [{'message-id', MessageId}, ?NS],
-            [{'delete-config', [],
-              [{target, [], [target(Target)]}]}]}).
+    rpc(MessageId, [{'delete-config', [{target, [target(Target)]}]}]).
 
 lock(MessageId, Target) ->
-    export({rpc, [{'message-id', MessageId}, ?NS],
-            [{lock, [],
-              [{target, [], [target(Target)]}]}]}).
+    rpc(MessageId, [{lock, [{target, [target(Target)]}]}]).
 
 unlock(MessageId, Target) ->
-    export({rpc, [{'message-id', MessageId}, ?NS],
-            [{unlock, [],
-              [{target, [], [target(Target)]}]}]}).
+    rpc(MessageId, [{unlock, [{target, [target(Target)]}]}]).
 
 get(MessageId, Filter) ->
-    export({rpc, [{'message-id', MessageId}, ?NS],
-            [{get, [],
-              [filter(Filter) || Filter /= undefined]}]}).
+    rpc(MessageId, [{get, [filter(Filter) || Filter /= undefined]}]).
 
 close_session(MessageId) ->
-    export({rpc, [{'message-id', MessageId}, ?NS],
-            [{'close-session', [], []}]}).
+    rpc(MessageId, ['close-session']).
 
 %% Replies ---------------------------------------------------------------------
 
@@ -339,6 +327,10 @@ rpc_error(Tag, Type, Severity, Info) ->
        {'error-severity', [atom_to_list(Severity)]}]
       ++ [{'error-info', [{Name, [to_list(Value)]}
                           || {Name, Value} <- Info, Info /= none]}]}].
+
+%% @private
+rpc(MessageId, Content) ->
+    export({rpc, [{'message-id', MessageId}, ?NS], Content}).
 
 %% @private
 rpc_reply(MessageId, Content) ->
