@@ -22,10 +22,14 @@
 -module(enetconf_ssh_tests).
 
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 -define(PORT, 8830).
--define(TIMEOUT, 1000).
+-define(TIMEOUT, 5000).
 -define(SERVER_CAPABILITIES, []).
+-define(CONNECT_OPTS, [{port, ?PORT}, {user, "test"}, {password, "test"},
+                       {silently_accept_hosts, true}]).
+-define(CONFIG, #xmlElement{name = test}).
 
 %% Tests -----------------------------------------------------------------------
 
@@ -33,15 +37,91 @@ ssh_test_() ->
     {setup,
      fun setup/0,
      fun teardown/1,
-     [{"Basic connectivity", fun hello/0}]}.
+     [{"Basic connectivity", fun hello/0},
+      {"Get configuration operation", fun get_config/0},
+      {"Edit configuration operation", fun edit_config/0},
+      {"Copy configuration operation", fun copy_config/0},
+      {"Delete configuration operation", fun delete_config/0},
+      {"Lock configuration operation", fun lock/0},
+      {"Unlock configuration operation", fun unlock/0},
+      {"Get configuration + state operation", fun get/0}]}.
 
 hello() ->
-    Opts = [{port, ?PORT},
-            {user, "test"}, {password, "test"},
-            {silently_accept_hosts, true}],
-    {ok, C} = enetconf_client:connect("localhost", Opts),
+    {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
     {ok, Ok} = enetconf_client:close_session(C),
     ?assertEqual(enetconf_xml:ok("0"), Ok),
+    ?assertNot(is_process_alive(C)).
+
+get_config() ->
+    {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
+
+    ExpectedReply = enetconf_xml:config_reply("0", ?CONFIG),
+    {ok, Reply} = enetconf_client:get_config(C, running),
+    ?assertEqual(ExpectedReply, Reply),
+
+    {ok, Ok} = enetconf_client:close_session(C),
+    ?assertEqual(enetconf_xml:ok("1"), Ok),
+    ?assertNot(is_process_alive(C)).
+
+edit_config() ->
+    {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
+
+    {ok, Reply} = enetconf_client:edit_config(C, running, {xml, ?CONFIG}),
+    ?assertEqual(enetconf_xml:ok("0"), Reply),
+
+    {ok, Ok} = enetconf_client:close_session(C),
+    ?assertEqual(enetconf_xml:ok("1"), Ok),
+    ?assertNot(is_process_alive(C)).
+
+copy_config() ->
+    {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
+
+    {ok, Reply} = enetconf_client:copy_config(C, startup, running),
+    ?assertEqual(enetconf_xml:ok("0"), Reply),
+
+    {ok, Ok} = enetconf_client:close_session(C),
+    ?assertEqual(enetconf_xml:ok("1"), Ok),
+    ?assertNot(is_process_alive(C)).
+
+delete_config() ->
+    {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
+
+    {ok, Reply} = enetconf_client:delete_config(C, candidate),
+    ?assertEqual(enetconf_xml:ok("0"), Reply),
+
+    {ok, Ok} = enetconf_client:close_session(C),
+    ?assertEqual(enetconf_xml:ok("1"), Ok),
+    ?assertNot(is_process_alive(C)).
+
+lock() ->
+    {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
+
+    {ok, Reply} = enetconf_client:lock(C, candidate),
+    ?assertEqual(enetconf_xml:ok("0"), Reply),
+
+    {ok, Ok} = enetconf_client:close_session(C),
+    ?assertEqual(enetconf_xml:ok("1"), Ok),
+    ?assertNot(is_process_alive(C)).
+
+unlock() ->
+    {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
+
+    {ok, Reply} = enetconf_client:unlock(C, candidate),
+    ?assertEqual(enetconf_xml:ok("0"), Reply),
+
+    {ok, Ok} = enetconf_client:close_session(C),
+    ?assertEqual(enetconf_xml:ok("1"), Ok),
+    ?assertNot(is_process_alive(C)).
+
+get() ->
+    {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
+
+    ExpectedReply = enetconf_xml:config_reply("0", ?CONFIG),
+    {ok, Reply} = enetconf_client:get(C, undefined),
+    ?assertEqual(ExpectedReply, Reply),
+
+    {ok, Ok} = enetconf_client:close_session(C),
+    ?assertEqual(enetconf_xml:ok("1"), Ok),
     ?assertNot(is_process_alive(C)).
 
 %% Fixtures --------------------------------------------------------------------

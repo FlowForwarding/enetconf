@@ -22,6 +22,7 @@
 -module(enetconf_parser_tests).
 
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 -include("enetconf.hrl").
 
 -define(SCHEMA, "netconf-1.0.xsd").
@@ -172,7 +173,11 @@ edit_config() ->
                               test_option = set},
     RPC = #rpc{message_id = "1",
                operation = EditConfig},
-    ?assertEqual({ok, RPC}, enetconf_parser:parse(?EDIT_CONFIG_RPC)).
+    {ok, Parsed} = enetconf_parser:parse(?EDIT_CONFIG_RPC),
+    #rpc{operation = #edit_config{config = {xml, XML}} = Operation} = Parsed,
+    Model = Parsed#rpc{operation = Operation#edit_config{config = undefined}},
+    ?assertEqual(RPC, Model),
+    ?assertEqual('some-configuration', XML#xmlElement.name).
 
 get_config() ->
     GetConfig = #get_config{source = running,

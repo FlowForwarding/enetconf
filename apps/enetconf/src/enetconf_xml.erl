@@ -21,14 +21,18 @@
 -module(enetconf_xml).
 
 %% API
--export([ok/1,
-         hello/1,
-         hello/2,
-         get_config/3,
+-export([hello/1,
+         hello/2]).
+-export([get_config/3,
          edit_config/3,
          copy_config/3,
          delete_config/2,
+         lock/2,
+         unlock/2,
+         get/2,
          close_session/1]).
+-export([ok/1,
+         config_reply/2]).
 -export([to_simple_form/1]).
 
 -include_lib("xmerl/include/xmerl.hrl").
@@ -40,12 +44,6 @@
 %%------------------------------------------------------------------------------
 %% API functions
 %%------------------------------------------------------------------------------
-
-%% @doc Return ok.
--spec ok(string()) -> binary().
-ok(MessageId) ->
-    export({'rpc-reply', [{'message-id', MessageId}, ?NS],
-            [{ok, [], []}]}).
 
 %% @doc Returns hello message with list of available capabilities.
 -spec hello([string()]) -> binary().
@@ -87,9 +85,34 @@ delete_config(MessageId, Target) ->
             [{'delete-config', [],
               [{target, [], [target(Target)]}]}]}).
 
+lock(MessageId, Target) ->
+    export({rpc, [{'message-id', MessageId}, ?NS],
+            [{lock, [],
+              [{target, [], [target(Target)]}]}]}).
+
+unlock(MessageId, Target) ->
+    export({rpc, [{'message-id', MessageId}, ?NS],
+            [{unlock, [],
+              [{target, [], [target(Target)]}]}]}).
+
+get(MessageId, Filter) ->
+    export({rpc, [{'message-id', MessageId}, ?NS],
+            [{get, [],
+              [filter(Filter) || Filter /= undefined]}]}).
+
 close_session(MessageId) ->
     export({rpc, [{'message-id', MessageId}, ?NS],
             [{'close-session', [], []}]}).
+
+%% @doc Return ok.
+-spec ok(string()) -> binary().
+ok(MessageId) ->
+    export({'rpc-reply', [{'message-id', MessageId}, ?NS],
+            [{ok, [], []}]}).
+
+config_reply(MessageId, Config) ->
+    export({'rpc-reply', [{'message-id', MessageId}, ?NS],
+            [{data, [], [to_simple_form(Config)]}]}).
 
 %% @doc Convert XML records returned by xmerl to a simple form tuples.
 %% It will output only the xmlElement and xmlText records and skip all the

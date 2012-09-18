@@ -144,6 +144,9 @@ handle_messages(Data, #state{connection_ref = ConnRef, channel_id = ChannelId,
              {ok, MessageId} ->
                  Ok = enetconf_xml:ok(MessageId),
                  send(ConnRef, ChannelId, Module, Ok);
+             {ok, MessageId, Config} ->
+                 ConfigReply = enetconf_xml:config_reply(MessageId, Config),
+                 send(ConnRef, ChannelId, Module, ConfigReply);
              {error, _Reason} ->
                  %% TODO: Return some errors
                  %% enetconf_xml:rpc_error(Reason)
@@ -177,9 +180,65 @@ execute(#hello{}, _) ->
 execute(#rpc{message_id = MessageId,
              operation = #close_session{}}, _) ->
     {close, MessageId};
-execute(#rpc{message_id = MessageId}, _Callback) ->
-    %% TODO: Execute received operations using the callback module
-    {ok, MessageId}.
+execute(#rpc{message_id = MessageId,
+             operation = #get_config{source = Source,
+                                     filter = Filter}}, Callback) ->
+    case Callback:handle_get_config(Source, Filter) of
+        {ok, Config} ->
+            {ok, MessageId, Config};
+        {error, Reason} ->
+            {error, Reason}
+    end;
+execute(#rpc{message_id = MessageId,
+             operation = #edit_config{target = Target,
+                                      config = Config}}, Callback) ->
+    case Callback:handle_edit_config(Target, Config) of
+        ok ->
+            {ok, MessageId};
+        {error, Reason} ->
+            {error, Reason}
+    end;
+execute(#rpc{message_id = MessageId,
+             operation = #copy_config{source = Source,
+                                      target = Target}}, Callback) ->
+    case Callback:handle_copy_config(Source, Target) of
+        ok ->
+            {ok, MessageId};
+        {error, Reason} ->
+            {error, Reason}
+    end;
+execute(#rpc{message_id = MessageId,
+             operation = #delete_config{target = Target}}, Callback) ->
+    case Callback:handle_delete_config(Target) of
+        ok ->
+            {ok, MessageId};
+        {error, Reason} ->
+            {error, Reason}
+    end;
+execute(#rpc{message_id = MessageId,
+             operation = #lock{target = Target}}, Callback) ->
+    case Callback:handle_lock(Target) of
+        ok ->
+            {ok, MessageId};
+        {error, Reason} ->
+            {error, Reason}
+    end;
+execute(#rpc{message_id = MessageId,
+             operation = #unlock{target = Target}}, Callback) ->
+    case Callback:handle_unlock(Target) of
+        ok ->
+            {ok, MessageId};
+        {error, Reason} ->
+            {error, Reason}
+    end;
+execute(#rpc{message_id = MessageId,
+             operation = #get{filter = Filter}}, Callback) ->
+    case Callback:handle_get(Filter) of
+        {ok, Config} ->
+            {ok, MessageId, Config};
+        {error, Reason} ->
+            {error, Reason}
+    end.
 
 %%------------------------------------------------------------------------------
 %% Helper functions

@@ -23,11 +23,14 @@
 -behaviour(gen_server).
 
 %% API
--export([connect/2,
-         get_config/2,
+-export([connect/2]).
+-export([get_config/2,
          edit_config/3,
          copy_config/3,
          delete_config/2,
+         lock/2,
+         unlock/2,
+         get/2,
          close_session/1]).
 
 %% gen_server callbacks
@@ -84,6 +87,24 @@ copy_config(Pid, Source, Target) ->
 delete_config(Pid, Target) ->
     gen_server:call(Pid, {delete_config, Target}).
 
+%% @doc Lock configuration.
+-spec lock(pid(), target()) -> {ok, Reply :: term()} |
+                               {error, timeout}.
+lock(Pid, Target) ->
+    gen_server:call(Pid, {lock, Target}).
+
+%% @doc Unlock configuration.
+-spec unlock(pid(), target()) -> {ok, Reply :: term()} |
+                                 {error, timeout}.
+unlock(Pid, Target) ->
+    gen_server:call(Pid, {unlock, Target}).
+
+%% @doc Unlock configuration.
+-spec get(pid(), filter()) -> {ok, Reply :: term()} |
+                              {error, timeout}.
+get(Pid, Filter) ->
+    gen_server:call(Pid, {get, Filter}).
+
 %% @doc Close the session.
 -spec close_session(pid()) -> {ok, Reply :: term()} | {error, timeout}.
 close_session(Pid) ->
@@ -134,6 +155,21 @@ handle_call({delete_config, Target}, _,
             #state{connection = C, message_id = MessageId} = State) ->
     DeleteConfig = enetconf_xml:delete_config(MessageId, Target),
     Reply = do_send(C, DeleteConfig),
+    {reply, Reply, State#state{message_id = MessageId + 1}};
+handle_call({lock, Target}, _,
+            #state{connection = C, message_id = MessageId} = State) ->
+    Lock = enetconf_xml:lock(MessageId, Target),
+    Reply = do_send(C, Lock),
+    {reply, Reply, State#state{message_id = MessageId + 1}};
+handle_call({unlock, Target}, _,
+            #state{connection = C, message_id = MessageId} = State) ->
+    Unlock = enetconf_xml:unlock(MessageId, Target),
+    Reply = do_send(C, Unlock),
+    {reply, Reply, State#state{message_id = MessageId + 1}};
+handle_call({get, Filter}, _,
+            #state{connection = C, message_id = MessageId} = State) ->
+    Get = enetconf_xml:get(MessageId, Filter),
+    Reply = do_send(C, Get),
     {reply, Reply, State#state{message_id = MessageId + 1}};
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.

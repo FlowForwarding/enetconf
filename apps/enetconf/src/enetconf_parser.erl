@@ -76,10 +76,12 @@ operation(#xmlElement{name = 'edit-config', content = Content}) ->
     Operation = get_text('default-operation', Content, atom),
     Test = get_text('test-option', Content, atom),
     Error = get_text('error-option', Content, atom),
+    Config = config(get_child(config, Content)),
     #edit_config{target = Target,
                  default_operation = Operation,
                  test_option = Test,
-                 error_option = Error};
+                 error_option = Error,
+                 config = Config};
 operation(#xmlElement{name = 'get-config', content = Content}) ->
     Source = get_config_source(get_child(source, Content)),
     Filter = filter(get_child(filter, Content)),
@@ -151,6 +153,15 @@ filter(#xmlElement{name = filter, attributes = Attrs, content = Content}) ->
             Select = get_attr(select, Attrs),
             {xpath, Select}
     end.
+
+%% @private
+config(#xmlElement{name = config,
+                   content = [#xmlElement{name = url,
+                                          content = [Content]}]}) ->
+    #xmlText{value = Url} = Content,
+    {url, Url};
+config(#xmlElement{name = config, content = [Content]}) ->
+    {xml, Content}.
 
 %%------------------------------------------------------------------------------
 %% Helper functions
