@@ -20,9 +20,11 @@
 %% @doc Module for generating XML replies and errors.
 -module(enetconf_xml).
 
-%% API
+%% API: Hellos
 -export([hello/1,
          hello/2]).
+
+%% API: Operations
 -export([get_config/3,
          edit_config/3,
          copy_config/3,
@@ -31,8 +33,34 @@
          unlock/2,
          get/2,
          close_session/1]).
+
+%% API: Replies
 -export([ok/1,
          config_reply/2]).
+
+%% API: Errors
+-export([in_use/2,
+         invalid_value/2,
+         too_big/2,
+         missing_attribute/4,
+         bad_attribute/4,
+         unknown_attribute/4,
+         missing_element/3,
+         bad_element/3,
+         unknown_element/3,
+         unknown_namespace/4,
+         access_denied/2,
+         lock_denied/2,
+         resource_denied/2,
+         rollback_failed/2,
+         data_exists/1,
+         data_missing/1,
+         operation_not_supported/2,
+         operation_failed/2,
+         partial_operation/4,
+         malformed_message/1]).
+
+%% API: Helpers
 -export([to_simple_form/1]).
 
 -include_lib("xmerl/include/xmerl.hrl").
@@ -44,6 +72,8 @@
 %%------------------------------------------------------------------------------
 %% API functions
 %%------------------------------------------------------------------------------
+
+%% Hellos ----------------------------------------------------------------------
 
 %% @doc Returns hello message with list of available capabilities.
 -spec hello([string()]) -> binary().
@@ -61,6 +91,8 @@ hello(Capabilities, SessionId) ->
               [{capability, [], [?BASE_CAPABILITY]}
                | [{capability, [], [Cap]} || Cap <- Capabilities]]},
              {'session-id', [], [integer_to_list(SessionId)]}]}).
+
+%% Operations ------------------------------------------------------------------
 
 get_config(MessageId, Source, Filter) ->
     export({rpc, [{'message-id', MessageId}, ?NS],
@@ -104,15 +136,121 @@ close_session(MessageId) ->
     export({rpc, [{'message-id', MessageId}, ?NS],
             [{'close-session', [], []}]}).
 
+%% Replies ---------------------------------------------------------------------
+
 %% @doc Return ok.
 -spec ok(string()) -> binary().
 ok(MessageId) ->
-    export({'rpc-reply', [{'message-id', MessageId}, ?NS],
-            [{ok, [], []}]}).
+    rpc_reply(MessageId, [ok]).
 
+%% @doc Return the configuration.
 config_reply(MessageId, Config) ->
-    export({'rpc-reply', [{'message-id', MessageId}, ?NS],
-            [{data, [], [to_simple_form(Config)]}]}).
+    rpc_reply(MessageId, [{data, [to_simple_form(Config)]}]).
+
+%% Errors ----------------------------------------------------------------------
+
+-spec in_use(string(), protocol | application) -> binary().
+in_use(MessageId, Type) ->
+    rpc_reply(MessageId, rpc_error('in-use', Type, error, none)).
+
+-spec invalid_value(string(), protocol | application) -> binary().
+invalid_value(MessageId, Type) ->
+    rpc_reply(MessageId, rpc_error('invalid-value', Type, error, none)).
+
+-spec too_big(string(), transport | rpc | protocol | application) -> binary().
+too_big(MessageId, Type) ->
+    rpc_reply(MessageId, rpc_error('too-big', Type, error, none)).
+
+-spec missing_attribute(string(), rpc | protocol | application,
+                        atom(), atom()) -> binary().
+missing_attribute(MessageId, Type, Attribute, Element) ->
+    rpc_reply(MessageId, rpc_error('missing-attribute', Type, error,
+                                   [{'bad-attribute', Attribute},
+                                    {'bad-element', Element}])).
+
+-spec bad_attribute(string(),
+                    rpc | protocol | application, atom(), atom()) -> binary().
+bad_attribute(MessageId, Type, Attribute, Element) ->
+    rpc_reply(MessageId, rpc_error('bad-attribute', Type, error,
+                                   [{'bad-attribute', Attribute},
+                                    {'bad-element', Element}])).
+
+-spec unknown_attribute(string(), rpc | protocol | application,
+                        atom(), atom()) -> binary().
+unknown_attribute(MessageId, Type, Attribute, Element) ->
+    rpc_reply(MessageId, rpc_error('unknown-attribute', Type, error,
+                                   [{'bad-attribute', Attribute},
+                                    {'bad-element', Element}])).
+
+-spec missing_element(string(), protocol | application, atom()) -> binary().
+missing_element(MessageId, Type, Element) ->
+    rpc_reply(MessageId, rpc_error('missing-element', Type, error,
+                                  [{'bad-element', Element}])).
+
+-spec bad_element(string(), protocol | application, atom()) -> binary().
+bad_element(MessageId, Type, Element) ->
+    rpc_reply(MessageId, rpc_error('bad-element', Type, error,
+                                   [{'bad-element', Element}])).
+
+-spec unknown_element(string(), protocol | application, atom()) -> binary().
+unknown_element(MessageId, Type, Element) ->
+    rpc_reply(MessageId, rpc_error('unknown-element', Type, error,
+                                   [{'bad-element', Element}])).
+
+-spec unknown_namespace(string(),
+                        protocol | application, atom(), term()) -> binary().
+unknown_namespace(MessageId, Type, Element, Namespace) ->
+    rpc_reply(MessageId, rpc_error('unknown_namespace', Type, error,
+                                   [{'bad-element', Element},
+                                    {'bad-namespace', Namespace}])).
+
+-spec access_denied(string(), protocol | application) -> binary().
+access_denied(MessageId, Type) ->
+    rpc_reply(MessageId, rpc_error('access-denied', Type, error, none)).
+
+-spec lock_denied(string(), integer()) -> binary().
+lock_denied(MessageId, SessionId) ->
+    rpc_reply(MessageId, rpc_error('lock-denied', protocol, error,
+                                   [{'session-id', SessionId}])).
+
+-spec resource_denied(string(),
+                      transport | rpc | protocol | application) -> binary().
+resource_denied(MessageId, Type) ->
+    rpc_reply(MessageId, rpc_error('resource-denied', Type, error, none)).
+
+-spec rollback_failed(string(), protocol | application) -> binary().
+rollback_failed(MessageId, Type) ->
+    rpc_reply(MessageId, rpc_error('rollback-failed', Type, error, none)).
+
+-spec data_exists(string()) -> binary().
+data_exists(MessageId) ->
+    rpc_reply(MessageId, rpc_error('data-exists', application, error, none)).
+
+-spec data_missing(string()) -> binary().
+data_missing(MessageId) ->
+    rpc_reply(MessageId, rpc_error('data-missing', application, error, none)).
+
+-spec operation_not_supported(string(), protocol | application) -> binary().
+operation_not_supported(MessageId, Type) ->
+    rpc_reply(MessageId, rpc_error('operation-not-supported',
+                                   Type, error, none)).
+
+-spec operation_failed(string(), rpc | protocol | application) -> binary().
+operation_failed(MessageId, Type) ->
+    rpc_reply(MessageId, rpc_error('operation-failed', Type, error, none)).
+
+-spec partial_operation(string(), term(), term(), term()) -> binary().
+partial_operation(MessageId, OkElement, ErrElement, NoopElement) ->
+    rpc_reply(MessageId, rpc_error('partial-operation', application, error,
+                                   [{'ok-element', OkElement},
+                                    {'err-element', ErrElement},
+                                    {'noop-element', NoopElement}])).
+
+-spec malformed_message(string()) -> binary().
+malformed_message(MessageId) ->
+    rpc_reply(MessageId, rpc_error('malformed-message', rpc, error, none)).
+
+%% Helpers ---------------------------------------------------------------------
 
 %% @doc Convert XML records returned by xmerl to a simple form tuples.
 %% It will output only the xmlElement and xmlText records and skip all the
@@ -194,5 +332,28 @@ attributes(Attrs) ->
 %%------------------------------------------------------------------------------
 
 %% @private
+rpc_error(Tag, Type, Severity, Info) ->
+    [{'rpc-error',
+      [{'error-tag', [atom_to_list(Tag)]},
+       {'error-type', [atom_to_list(Type)]},
+       {'error-severity', [atom_to_list(Severity)]}]
+      ++ [{'error-info', [{Name, [to_list(Value)]}
+                          || {Name, Value} <- Info, Info /= none]}]}].
+
+%% @private
+rpc_reply(MessageId, Content) ->
+    export({'rpc-reply', [{'message-id', MessageId}, ?NS], Content}).
+
+%% @private
 export(SimpleFormXml) ->
     list_to_binary(xmerl:export_simple([SimpleFormXml], xmerl_xml, [?PROLOG])).
+
+%% @private
+to_list(Int) when is_integer(Int) ->
+    integer_to_list(Int);
+to_list(Atom) when is_atom(Atom) ->
+    atom_to_list(Atom);
+to_list(Bin) when is_binary(Bin) ->
+    binary_to_list(Bin);
+to_list(List) when is_list(List) ->
+    List.
