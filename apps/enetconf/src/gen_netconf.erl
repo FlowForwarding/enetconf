@@ -32,10 +32,10 @@
 -callback handle_edit_config(Target :: target(),
                              Config :: config()) -> ok | error().
 
--callback handle_delete_config(Target :: target()) -> ok | error().
-
 -callback handle_copy_config(Source :: source(),
                              Target :: target()) -> ok | error().
+
+-callback handle_delete_config(Target :: target()) -> ok | error().
 
 -callback handle_lock(Target :: target()) -> ok | error().
 

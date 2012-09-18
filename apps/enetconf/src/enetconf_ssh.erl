@@ -161,13 +161,7 @@ handle_messages(Data, #state{connection_ref = ConnRef, channel_id = ChannelId,
 parse_xml(XML, Callback) ->
     try
         {ok, Operation} = enetconf_parser:parse(binary_to_list(XML)),
-        case Callback of
-            %% TODO: No callback specified
-            %% undefined ->
-            %%     {error, no_callback_module};
-            Callback ->
-                execute(Operation, Callback)
-        end
+        execute(Operation, Callback)
     catch
         throw:{error, {scan, _}} ->
             {error, reason};

@@ -51,7 +51,7 @@ setup() ->
     application:load(enetconf),
     application:set_env(enetconf, schema_file, "netconf-1.0.xsd"),
     application:set_env(enetconf, capabilities, ?SERVER_CAPABILITIES),
-    application:set_env(enetconf, callback_module, undefined),
+    application:set_env(enetconf, callback_module, enetconf_default),
     application:set_env(enetconf, sshd_ip, any),
     application:set_env(enetconf, sshd_port, ?PORT),
     application:set_env(enetconf, sshd_shell, {enetconf_ssh, spawn_link, []}),

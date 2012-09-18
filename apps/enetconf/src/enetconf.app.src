@@ -9,7 +9,7 @@
   {mod, {enetconf, []}},
   {env, [{schema_file, "netconf-1.0.xsd"},
          {capabilities, []},
-         {callback_module, undefined},
+         {callback_module, enetconf_default},
          {sshd_ip, {127,0,0,1}},
          {sshd_port, 830},
          {sshd_user_passwords, [{"guest", "guest"}]}]}
