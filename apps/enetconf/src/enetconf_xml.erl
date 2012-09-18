@@ -79,45 +79,34 @@
 %% @doc Returns hello message with list of available capabilities.
 -spec hello([string()]) -> binary().
 hello(Capabilities) ->
-    export({hello, [?NS],
-            [{capabilities, [],
-              [{capability, [], [?BASE_CAPABILITY]}
-               | [{capability, [], [Cap]} || Cap <- Capabilities]]}]}).
+    export({hello, [?NS], [capabilities(Capabilities)]}).
 
 %% @doc Returns hello message with list of available capabilities + session-id.
 -spec hello([string()], integer()) -> binary().
 hello(Capabilities, SessionId) ->
-    export({hello, [?NS],
-            [{capabilities, [],
-              [{capability, [], [?BASE_CAPABILITY]}
-               | [{capability, [], [Cap]} || Cap <- Capabilities]]},
-             {'session-id', [], [integer_to_list(SessionId)]}]}).
+    export({hello, [?NS], [capabilities(Capabilities),
+                           {'session-id', [integer_to_list(SessionId)]}]}).
 
 %% Operations ------------------------------------------------------------------
 
 get_config(MessageId, Source, Filter) ->
-    rpc(MessageId, [{'get-config',
-                     [{source, [get_config_source(Source)]}]
+    rpc(MessageId, [{'get-config', [get_config_source(Source)]
                      ++ [filter(Filter) || Filter /= undefined]}]).
 
 edit_config(MessageId, Target, Config) ->
-    rpc(MessageId, [{'edit-config',
-                     [{target, [target(Target)]},
-                      {config, [config(Config)]}]}]).
+    rpc(MessageId, [{'edit-config', [target(Target), config(Config)]}]).
 
 copy_config(MessageId, Source, Target) ->
-    rpc(MessageId, [{'copy-config',
-                     [{target, [target(Target)]},
-                      {source, [source(Source)]}]}]).
+    rpc(MessageId, [{'copy-config', [target(Target), source(Source)]}]).
 
 delete_config(MessageId, Target) ->
-    rpc(MessageId, [{'delete-config', [{target, [target(Target)]}]}]).
+    rpc(MessageId, [{'delete-config', [target(Target)]}]).
 
 lock(MessageId, Target) ->
-    rpc(MessageId, [{lock, [{target, [target(Target)]}]}]).
+    rpc(MessageId, [{lock, [target(Target)]}]).
 
 unlock(MessageId, Target) ->
-    rpc(MessageId, [{unlock, [{target, [target(Target)]}]}]).
+    rpc(MessageId, [{unlock, [target(Target)]}]).
 
 get(MessageId, Filter) ->
     rpc(MessageId, [{get, [filter(Filter) || Filter /= undefined]}]).
@@ -263,30 +252,35 @@ to_simple_form(Elements) when is_list(Elements) ->
 %%------------------------------------------------------------------------------
 
 %% @private
+capabilities(Capabilities) ->
+    {capabilities, [{capability, [?BASE_CAPABILITY]}
+                    | [{capability, [Cap]} || Cap <- Capabilities]]}.
+
+%% @private
 source({url, Url}) ->
-    {url, [], [Url]};
+    {source, [{url, [Url]}]};
 source({xml, XML}) ->
-    XML;
+    {source, [to_simple_form(XML)]};
 source(Name) ->
-    {Name, [], []}.
+    {source, [Name]}.
 
 %% @private
 get_config_source({url, Url}) ->
-    {url, [], [Url]};
+    {source, [{url, [Url]}]};
 get_config_source(Name) ->
-    {Name, [], []}.
+    {source, [Name]}.
 
 %% @private
 target({url, Url}) ->
-    {url, [], [Url]};
+    {target, [{url, [Url]}]};
 target(Name) ->
-    {Name, [], []}.
+    {target, [Name]}.
 
 %% @private
 config({xml, XML}) ->
-    to_simple_form(XML);
+    {config, [to_simple_form(XML)]};
 config({url, Url}) ->
-    {url, [], [Url]}.
+    {config, [{url, [Url]}]}.
 
 %% @private
 filter({subtree, Subtree}) ->
