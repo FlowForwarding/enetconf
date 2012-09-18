@@ -32,7 +32,8 @@
          lock/2,
          unlock/2,
          get/2,
-         close_session/1]).
+         close_session/1,
+         kill_session/2]).
 
 %% API: Replies
 -export([ok/1,
@@ -123,6 +124,10 @@ get(MessageId, Filter) ->
 
 close_session(MessageId) ->
     rpc(MessageId, ['close-session']).
+
+kill_session(MessageId, SessionId) ->
+    rpc(MessageId, [{'kill-session',
+                     [{'session-id', [integer_to_list(SessionId)]}]}]).
 
 %% Replies ---------------------------------------------------------------------
 
