@@ -127,14 +127,43 @@
                     | protocol
                     | application.
 
--type error_tag() :: in_use
-                   | invalid_value
-                   | too_big
-                   | missing_attibute.
+-type error_tag() :: 'in-use'
+                   | 'invalid-value'
+                   | 'too-big'
+                   | 'missing-attibute'
+                   | 'bad-attibute'
+                   | 'unknown-attribute'
+                   | 'missing-element'
+                   | 'bad-element'
+                   | 'unknown-element'
+                   | 'unknown-namespace'
+                   | 'access-denied'
+                   | 'lock-denied'
+                   | 'resource-denied'
+                   | 'rollback-failed'
+                   | 'data-exists'
+                   | 'data-missing'
+                   | 'operation-not-supported'
+                   | 'operation-failed'
+                   | 'partial-operation'
+                   | 'malformed-message'.
+
+-type error_severity() :: error
+                        | warning.
+
+-type error_info() :: 'session-id'
+                    | 'bad-attribute'
+                    | 'bad-element'
+                    | 'ok-element'
+                    | 'err-element'
+                    | 'noop-element'
+                    | 'bad-namespace'.
 
 -record(rpc_error, {
           type :: error_type(),
-          tag :: error_tag()
+          tag :: error_tag(),
+          severity :: error_severity(),
+          info = none :: [{error_info(), term()}]
          }).
 
 -record(ok, {}).

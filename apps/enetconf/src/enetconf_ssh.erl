@@ -162,16 +162,11 @@ handle_messages(Data, #state{connection_ref = ConnRef, channel_id = ChannelId,
 
 %% @private
 parse_xml(XML, Callback) ->
-    try
-        {ok, Operation} = enetconf_parser:parse(binary_to_list(XML)),
-        execute(Operation, Callback)
-    catch
-        throw:{error, {scan, _}} ->
-            {error, reason};
-        throw:{error, {validate, _}} ->
-            {error, reason};
-        throw:{error, {parse, _}} ->
-            {error, reason}
+    case enetconf_parser:parse(binary_to_list(XML)) of
+        {ok, Operation} ->
+            execute(Operation, Callback);
+        {error, Reason} ->
+            {error, Reason}
     end.
 
 %% @private

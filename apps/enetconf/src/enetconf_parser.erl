@@ -38,20 +38,21 @@ parse(XML) ->
 
     try
         %% Scan the XML
-        {ScannedXML, _Rest} = xmerl_scan:string(XML),
+        {ScannedXML, _Rest} = xmerl_scan:string(XML, [{quiet, true}]),
 
         %% Validated XML against the schema
         case xmerl_xsd:validate(ScannedXML, Schema) of
-            {error, ValidationError} ->
-                throw({error, {validate, ValidationError}});
+            {error, Reason} ->
+                SimpleReason = simplify_error(Reason),
+                {error, SimpleReason};
             {ValidatedXML, _} ->
                 do_parse(process(ValidatedXML))
         end
     catch
-        _:{'EXIT', {fatal, {ScanError, _, _, _}}} ->
-            throw({error, {scan, ScanError}});
+        exit:{fatal, {_, _, _, _}} ->
+            {error, malformed_message};
         throw:{parse_error, ParseError} ->
-            throw({error, {parse, ParseError}})
+            {error, ParseError}
     end.
 
 %%------------------------------------------------------------------------------
@@ -113,7 +114,12 @@ get_config_source(#xmlElement{name = source,
     {url, Url};
 get_config_source(#xmlElement{name = source,
                               content = [#xmlElement{name = Tag}]}) ->
-    Tag.
+    case Tag of
+        url ->
+            throw({parse_error, {bad_element, url}});
+        _ ->
+            Tag
+    end.
 
 %% @private
 source(#xmlElement{name = source,
@@ -127,7 +133,12 @@ source(#xmlElement{name = source,
     {xml, Config};
 source(#xmlElement{name = source,
                    content = [#xmlElement{name = Tag}]}) ->
-    Tag.
+    case Tag of
+        url ->
+            throw({parse_error, {bad_element, url}});
+        _ ->
+            Tag
+    end.
 
 %% @private
 target(#xmlElement{name = target,
@@ -137,7 +148,12 @@ target(#xmlElement{name = target,
     {url, Url};
 target(#xmlElement{name = target,
                    content = [#xmlElement{name = Tag}]}) ->
-    Tag.
+    case Tag of
+        url ->
+            throw({parse_error, {bad_element, url}});
+        _ ->
+            Tag
+    end.
 
 %% @private
 filter(undefined) ->
@@ -150,8 +166,13 @@ filter(#xmlElement{name = filter, attributes = Attrs, content = Content}) ->
             Subtree = get_child(Content),
             {subtree, Subtree};
         xpath ->
-            Select = get_attr(select, Attrs),
-            {xpath, Select}
+            case get_attr(select, Attrs) of
+                undefined ->
+                    throw({parse_error,
+                           {missing_attribute, select, filter}});
+                Select ->
+                    {xpath, Select}
+            end
     end.
 
 %% @private
@@ -161,7 +182,16 @@ config(#xmlElement{name = config,
     #xmlText{value = Url} = Content,
     {url, Url};
 config(#xmlElement{name = config, content = [Content]}) ->
-    {xml, Content}.
+    case Content of
+        url ->
+            throw({parse_error, {bad_element, url}});
+        {url, _} ->
+            throw({parse_error, {bad_element, url}});
+        {url, _, _} ->
+            throw({parse_error, {bad_element, url}});
+        _ ->
+            {xml, Content}
+    end.
 
 %%------------------------------------------------------------------------------
 %% Helper functions
@@ -264,3 +294,47 @@ content([#xmlText{} = Text | Rest], Content) ->
     end;
 content([_ | Rest], Content) ->
     content(Rest, Content).
+
+%% @private
+simplify_error([{_, _, {element_not_in_schema, [Element, _, _]}} | _]) ->
+    {unknown_element, Element};
+simplify_error([{_, _, {required_attribute_missed, #xmlElement{name = Element},
+                        {Attribute, _, _}}} | _]) ->
+    {missing_attribute, Attribute, Element};
+simplify_error([{_, _, {missing_mandatory_elements,
+                        {_, {{Element, _, _}, _}}}} | _]) ->
+    case Element of
+        rpcOperation ->
+            %% Note: As returing a bad-element is mandatory and there is more
+            %%       than one operation possible here, let's take a random one.
+            {missing_element, 'get-config'};
+        _ ->
+            {missing_element, Element}
+    end;
+simplify_error([{_, _, {empty_content_not_allowed,
+                        [{_, {[{_, {{Element, _, _}, _}} | _], _}}
+                         | _]}} | _]) ->
+    {missing_element, Element};
+simplify_error([{_, _, {cannot_contain_text,
+                        #xmlText{parents = [{Element, _} | _]}, _}} | _]) ->
+    {bad_element, Element};
+simplify_error([{_, _, {no_element_matching_choice,
+                        [#xmlElement{parents = [{Element, _} | _]}
+                         | _]}} | _]) ->
+    {bad_element, Element};
+simplify_error([{value_not_anyURI, _} | _]) ->
+    {bad_element, url};
+simplify_error([{_, _, {match_failure,
+                        [#xmlElement{parents = [{Element, _} | _]} | _],
+                        _, _}} | _]) ->
+    {bad_element, Element};
+simplify_error([{_, _, {match_failure,
+                        [#xmlText{parents = [{Element, _} | _]} | _],
+                        _, _}} | _]) ->
+    {bad_element, Element};
+simplify_error([{_, _, {unexpected_rest,
+                        [#xmlElement{parents = [{Element, _} | _]}
+                         | _]}} | _]) ->
+    {bad_element, Element};
+simplify_error(_Else) ->
+    invalid_value.
