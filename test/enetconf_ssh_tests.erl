@@ -128,13 +128,20 @@ get() ->
 
 setup() ->
     error_logger:tty(false),
+
+    %% HACK: Rebar is not preserving the directory structure and copies
+    %%       everything to .eunit, so this symlink makes code:priv_dir/1
+    %%       works again.
+    file:make_symlink("..", "enetconf"),
+    code:add_path("./enetconf/ebin"),
+
     application:load(enetconf),
     application:set_env(enetconf, schema_file, "netconf-1.0.xsd"),
     application:set_env(enetconf, capabilities, ?SERVER_CAPABILITIES),
     application:set_env(enetconf, callback_module, enetconf_default),
     application:set_env(enetconf, sshd_ip, any),
     application:set_env(enetconf, sshd_port, ?PORT),
-    application:set_env(enetconf, sshd_shell, {enetconf_ssh, spawn_link, []}),
+    application:set_env(enetconf, sshd_shell, {undefined, undefined, []}),
     application:set_env(enetconf, sshd_user_passwords, [{"test", "test"}]),
     application:start(ssh),
     application:start(xmerl),

@@ -234,7 +234,7 @@ kill_session() ->
 %% Fixtures --------------------------------------------------------------------
 
 setup() ->
-    SchemaPath = filename:join(code:priv_dir(enetconf), ?SCHEMA),
+    SchemaPath = filename:join("../priv", ?SCHEMA),
     {ok, State} = xmerl_xsd:process_schema(SchemaPath),
     ets:new(enetconf, [named_table, set, public, {read_concurrency, true}]),
     ets:insert(enetconf, {schema, State}).
