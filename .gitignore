@@ -1,9 +1,6 @@
-/apps/*/ebin/
-/apps/*/.eunit/
 /ebin/
 /.eunit/
 /deps/
-/priv/
 /doc/*
 !/doc/overview.edoc
 *.o
