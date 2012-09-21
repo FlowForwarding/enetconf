@@ -1,9 +1,8 @@
-<?xml version='1.0'?>
+<?xml version="1.0" encoding="utf-8"?>
 <xs:schema targetNamespace="http://www.w3.org/XML/1998/namespace"
-  xmlns:xs="http://www.w3.org/2001/XMLSchema"
-  xmlns   ="http://www.w3.org/1999/xhtml"
-  xml:lang="en">
-
+           xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://www.w3.org/1999/xhtml"
+           xml:lang="en">
  <xs:attribute name="lang">
   <xs:simpleType>
    <xs:union memberTypes="xs:language">
@@ -15,7 +14,6 @@
    </xs:union>
   </xs:simpleType>
  </xs:attribute>
-
  <xs:attribute name="space">
   <xs:simpleType>
    <xs:restriction base="xs:NCName">
@@ -24,11 +22,8 @@
    </xs:restriction>
   </xs:simpleType>
  </xs:attribute>
-
- <xs:attribute name="base" type="xs:anyURI">
- </xs:attribute>
-
- <xs:attribute name="id" type="xs:ID">
- </xs:attribute>
-
+ <xs:attribute name="base"
+               type="xs:anyURI"/>
+ <xs:attribute name="id"
+               type="xs:ID"/>
 </xs:schema>
