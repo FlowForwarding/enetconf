@@ -55,8 +55,7 @@ stop(_Pid) ->
 %% @private
 load_schema() ->
     %% Process the schema
-    {ok, SchemaFile} = application:get_env(enetconf, schema_file),
-    SchemaPath = filename:join(code:priv_dir(enetconf), SchemaFile),
+    SchemaPath = filename:join(code:priv_dir(enetconf), "netconf-1.0.xsd"),
     {ok, State} = xmerl_xsd:process_schema(SchemaPath),
 
     %% Save it to an ets table

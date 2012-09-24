@@ -25,8 +25,6 @@
 -include_lib("xmerl/include/xmerl.hrl").
 -include("enetconf.hrl").
 
--define(SCHEMA, "netconf-1.0.xsd").
-
 %% Test XMLs -------------------------------------------------------------------
 
 -define(HELLO,
@@ -234,7 +232,10 @@ kill_session() ->
 %% Fixtures --------------------------------------------------------------------
 
 setup() ->
-    SchemaPath = filename:join("../priv", ?SCHEMA),
+    file:make_symlink("..", "enetconf"),
+    code:add_path("./enetconf/ebin"),
+
+    SchemaPath = filename:join(code:priv_dir(enetconf), "netconf-1.0.xsd"),
     {ok, State} = xmerl_xsd:process_schema(SchemaPath),
     ets:new(enetconf, [named_table, set, public, {read_concurrency, true}]),
     ets:insert(enetconf, {schema, State}).
