@@ -23,13 +23,13 @@
 -behaviour(gen_netconf).
 
 %% gen_netconf callbacks
--export([handle_get_config/2,
-	 handle_edit_config/2,
-	 handle_copy_config/2,
-	 handle_delete_config/1,
-         handle_lock/1,
-         handle_unlock/1,
-         handle_get/1]).
+-export([handle_get_config/3,
+         handle_edit_config/3,
+         handle_copy_config/3,
+         handle_delete_config/2,
+         handle_lock/2,
+         handle_unlock/2,
+         handle_get/2]).
 
 -include_lib("xmerl/include/xmerl.hrl").
 
@@ -40,7 +40,7 @@
 %%------------------------------------------------------------------------------
 
 %% @private
-handle_get_config(Source, Filter) ->
+handle_get_config(_SessionId, Source, Filter) ->
     From = case Source of
                {url, Url} ->
                    io_lib:format("Get config from ~p", [Url]);
@@ -60,7 +60,7 @@ handle_get_config(Source, Filter) ->
     {ok, ?TEST_CONFIG}.
 
 %% @private
-handle_edit_config(Target, Config) ->
+handle_edit_config(_SessionId, Target, Config) ->
     To = case Target of
              {url, Url} ->
                  io_lib:format("Edit config at ~p", [Url]);
@@ -77,7 +77,7 @@ handle_edit_config(Target, Config) ->
     ok.
 
 %% @private
-handle_copy_config(Source, Target) ->
+handle_copy_config(_SessionId, Source, Target) ->
     From = case Source of
                {url, Url} ->
                    io_lib:format("Copy config from ~p", [Url]);
@@ -96,38 +96,38 @@ handle_copy_config(Source, Target) ->
     ok.
 
 %% @private
-handle_delete_config({url, Url}) ->
+handle_delete_config(_SessionId, {url, Url}) ->
     error_logger:info_msg("Delete config from ~p~n", [Url]),
     ok;
-handle_delete_config(ConfigName) ->
+handle_delete_config(_SessionId, ConfigName) ->
     error_logger:info_msg("Delete ~p config~n", [ConfigName]),
     ok.
 
 %% @private
-handle_lock({url, Url}) ->
+handle_lock(_SessionId, {url, Url}) ->
     error_logger:info_msg("Lock config from ~p~n", [Url]),
     ok;
-handle_lock(ConfigName) ->
+handle_lock(_SessionId, ConfigName) ->
     error_logger:info_msg("Lock ~p config~n", [ConfigName]),
     ok.
 
 %% @private
-handle_unlock({url, Url}) ->
+handle_unlock(_SessionId, {url, Url}) ->
     error_logger:info_msg("Unlock config from ~p~n", [Url]),
     ok;
-handle_unlock(ConfigName) ->
+handle_unlock(_SessionId, ConfigName) ->
     error_logger:info_msg("Unlock ~p config~n", [ConfigName]),
     ok.
 
 %% @private
-handle_get({subtree, Subtree}) ->
+handle_get(_SessionId, {subtree, Subtree}) ->
     error_logger:info_msg("Get state with subtree filter: ~p~n",
                           [to_xml(Subtree)]),
     {ok, ?TEST_CONFIG};
-handle_get({xpath, Select}) ->
+handle_get(_SessionId, {xpath, Select}) ->
     error_logger:info_msg("Get state with xpath filter: ~p~n", [Select]),
     {ok, ?TEST_CONFIG};
-handle_get(undefined) ->
+handle_get(_SessionId, undefined) ->
     error_logger:info_msg("Get state~n", []),
     {ok, ?TEST_CONFIG}.
 

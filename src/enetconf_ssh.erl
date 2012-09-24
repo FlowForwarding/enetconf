@@ -35,8 +35,9 @@
          terminate/2]).
 
 -record(state, {
-          channel_id :: ssh_channel:channel_id(),
           connection_ref :: ssh_channel:connection_ref(),
+          channel_id :: ssh_channel:channel_id(),
+          session_id :: integer(),
           parsing_module :: enetconf_frame_end | enetconf_frame_chunk,
           parser :: record(),
           callback_module :: atom()
@@ -55,11 +56,13 @@ init(_) ->
 
 %% @private
 handle_msg({ssh_channel_up, ChannelId, ConnRef}, State) ->
-    Capabilities = get_server_capabilities(get_session_id()),
+    SessionId = get_session_id(),
+    Capabilities = get_server_capabilities(SessionId),
     {ok, EncodedCaps} = enetconf_fm_eom:encode(Capabilities),
     ssh_connection:send(ConnRef, ChannelId, EncodedCaps),
     {ok, State#state{connection_ref= ConnRef,
-                     channel_id = ChannelId}};
+                     channel_id = ChannelId,
+                     session_id = SessionId}};
 handle_msg({'EXIT', Reason}, #state{channel_id = ChannelId} = State) ->
     ?INFO("SSH channel ~p exited with reason: ~p", [ChannelId, Reason]),
     {stop, ChannelId, State}.
@@ -132,6 +135,7 @@ terminate(Subsystem, State) ->
 
 %% @private
 handle_messages(Data, #state{connection_ref = ConnRef, channel_id = ChannelId,
+                             session_id = SessionId,
                              parsing_module = Module, parser = Parser,
                              callback_module = Callback} = State) ->
     %% Decode messages
@@ -140,17 +144,16 @@ handle_messages(Data, #state{connection_ref = ConnRef, channel_id = ChannelId,
     %% Parse and execute received rpc operations
     [begin
          ?INFO("Received: ~p~n", [Msg]),
-         case parse_xml(Msg, Callback) of
+         case parse_xml(Msg, SessionId, Callback) of
              {ok, MessageId} ->
                  Ok = enetconf_xml:ok(MessageId),
                  send(ConnRef, ChannelId, Module, Ok);
              {ok, MessageId, Config} ->
                  ConfigReply = enetconf_xml:config_reply(MessageId, Config),
                  send(ConnRef, ChannelId, Module, ConfigReply);
-             {error, _Reason} ->
-                 %% TODO: Return some errors
-                 %% enetconf_xml:rpc_error(Reason)
-                 error;
+             {error, MessageId, Reason} ->
+                 ErrorReply = get_error(MessageId, Reason),
+                 send(ConnRef, ChannelId, Module, ErrorReply);
              {close, MessageId} ->
                  Ok = enetconf_xml:ok(MessageId),
                  send(ConnRef, ChannelId, Module, Ok),
@@ -161,79 +164,49 @@ handle_messages(Data, #state{connection_ref = ConnRef, channel_id = ChannelId,
     State#state{parser = NewParser}.
 
 %% @private
-parse_xml(XML, Callback) ->
+parse_xml(XML, SessionId, Callback) ->
     case enetconf_parser:parse(binary_to_list(XML)) of
         {ok, Operation} ->
-            execute(Operation, Callback);
-        {error, Reason} ->
-            {error, Reason}
+            execute(Operation, SessionId, Callback);
+        {error, MessageId, Reason} ->
+            {error, MessageId, Reason}
     end.
 
 %% @private
-execute(#hello{}, _) ->
-    rpc_error;
+execute(#hello{}, _SessionId, _Callback) ->
+    {error, undefined, {invalid_value, rpc}};
 execute(#rpc{message_id = MessageId,
-             operation = #close_session{}}, _) ->
-    {close, MessageId};
-execute(#rpc{message_id = MessageId,
-             operation = #get_config{source = Source,
-                                     filter = Filter}}, Callback) ->
-    case Callback:handle_get_config(Source, Filter) of
+             operation = Operation}, SessionId, Callback) ->
+    case execute_rpc(Operation, SessionId, Callback) of
+        ok ->
+            {ok, MessageId};
         {ok, Config} ->
             {ok, MessageId, Config};
+        close ->
+            {close, MessageId};
         {error, Reason} ->
-            {error, Reason}
-    end;
-execute(#rpc{message_id = MessageId,
-             operation = #edit_config{target = Target,
-                                      config = Config}}, Callback) ->
-    case Callback:handle_edit_config(Target, Config) of
-        ok ->
-            {ok, MessageId};
-        {error, Reason} ->
-            {error, Reason}
-    end;
-execute(#rpc{message_id = MessageId,
-             operation = #copy_config{source = Source,
-                                      target = Target}}, Callback) ->
-    case Callback:handle_copy_config(Source, Target) of
-        ok ->
-            {ok, MessageId};
-        {error, Reason} ->
-            {error, Reason}
-    end;
-execute(#rpc{message_id = MessageId,
-             operation = #delete_config{target = Target}}, Callback) ->
-    case Callback:handle_delete_config(Target) of
-        ok ->
-            {ok, MessageId};
-        {error, Reason} ->
-            {error, Reason}
-    end;
-execute(#rpc{message_id = MessageId,
-             operation = #lock{target = Target}}, Callback) ->
-    case Callback:handle_lock(Target) of
-        ok ->
-            {ok, MessageId};
-        {error, Reason} ->
-            {error, Reason}
-    end;
-execute(#rpc{message_id = MessageId,
-             operation = #unlock{target = Target}}, Callback) ->
-    case Callback:handle_unlock(Target) of
-        ok ->
-            {ok, MessageId};
-        {error, Reason} ->
-            {error, Reason}
-    end;
-execute(#rpc{message_id = MessageId,
-             operation = #get{filter = Filter}}, Callback) ->
-    case Callback:handle_get(Filter) of
-        {ok, Config} ->
-            {ok, MessageId, Config};
-        {error, Reason} ->
-            {error, Reason}
+            {error, MessageId, Reason}
     end.
+
+execute_rpc(#close_session{}, _SessionId, _Callback) ->
+    close;
+execute_rpc(#get_config{source = Source,
+                        filter = Filter}, SessionId, Callback) ->
+    Callback:handle_get_config(SessionId, Source, Filter);
+execute_rpc(#edit_config{target = Target,
+                         config = Config}, SessionId, Callback) ->
+    Callback:handle_edit_config(SessionId, Target, Config);
+execute_rpc(#copy_config{source = Source,
+                         target = Target}, SessionId, Callback) ->
+    Callback:handle_copy_config(SessionId, Source, Target);
+execute_rpc(#delete_config{target = Target}, SessionId, Callback) ->
+    Callback:handle_delete_config(SessionId, Target);
+execute_rpc(#lock{target = Target}, SessionId, Callback) ->
+    Callback:handle_lock(SessionId, Target);
+execute_rpc(#unlock{target = Target}, SessionId, Callback) ->
+    Callback:handle_unlock(SessionId, Target);
+execute_rpc(#get{filter = Filter}, SessionId, Callback) ->
+    Callback:handle_get(SessionId, Filter).
 
 %%------------------------------------------------------------------------------
 %% Helper functions
@@ -262,9 +235,20 @@ get_parser_module(#hello{capabilities = Capabilities}) ->
             end
     end.
 
+%% @private
+get_error(MessageId, {in_use, Type}) ->
+    enetconf_xml:in_use(MessageId, Type);
+get_error(MessageId, {invalid_value, Type}) ->
+    enetconf_xml:invalid_value(MessageId, Type);
+get_error(MessageId, _) ->
+    %% TODO: Return other errors
+    enetconf_xml:invalid_value(MessageId, application).
+
+%% @private
 send(Conn, Channel, Module, Message) ->
     {ok, EncodedMessage} = Module:encode(Message),
     ssh_connection:send(Conn, Channel, EncodedMessage).
 
+%% @private
 close(Conn, Channel) ->
     ssh_connection:close(Conn, Channel).

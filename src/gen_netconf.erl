@@ -25,20 +25,25 @@
 
 -type error() :: {error, Reason :: term()}.
 
--callback handle_get_config(Source :: get_config_source(),
+-callback handle_get_config(SessionId :: integer(),
+                            Source :: get_config_source(),
                             Filter :: filter()) -> {ok, Config :: xml()} |
                                                    error().
 
--callback handle_edit_config(Target :: target(),
+-callback handle_edit_config(SessionId :: integer(), Target :: target(),
                              Config :: config()) -> ok | error().
 
--callback handle_copy_config(Source :: source(),
+-callback handle_copy_config(SessionId :: integer(), Source :: source(),
                              Target :: target()) -> ok | error().
 
--callback handle_delete_config(Target :: target()) -> ok | error().
+-callback handle_delete_config(SessionId :: integer(),
+                               Target :: target()) -> ok | error().
 
--callback handle_lock(Target :: target()) -> ok | error().
+-callback handle_lock(SessionId :: integer(),
+                      Target :: target()) -> ok | error().
 
--callback handle_unlock(Target :: target()) -> ok | error().
+-callback handle_unlock(SessionId :: integer(),
+                        Target :: target()) -> ok | error().
 
--callback handle_get(Filter :: filter()) -> {ok, Config :: xml()} | error().
+-callback handle_get(SessionId :: integer(),
+                     Filter :: filter()) -> {ok, Config :: xml()} | error().
