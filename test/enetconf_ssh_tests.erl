@@ -149,4 +149,5 @@ setup() ->
 teardown(_) ->
     application:stop(enetconf),
     application:stop(xmerl),
-    application:stop(ssh).
+    application:stop(ssh),
+    file:delete("enetconf").

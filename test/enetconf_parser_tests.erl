@@ -241,4 +241,5 @@ setup() ->
     ets:insert(enetconf, {schema, State}).
 
 teardown(_) ->
-    ets:delete(enetconf).
+    ets:delete(enetconf),
+    file:delete("enetconf").
