@@ -159,8 +159,7 @@ parsing_test_() ->
       {"Test rpc 'kill-session' operation", fun kill_session/0}]}.
 
 hello() ->
-    Capabilities = ["urn:ietf:params:netconf:base:1.1",
-                    "urn:ietf:params:netconf:capability:url:1.0"],
+    Capabilities = [{base, {1, 1}}, {url, {1, 0}}],
     Hello = #hello{capabilities = Capabilities,
                    session_id = 1},
     ?assertEqual({ok, Hello}, enetconf_parser:parse(?HELLO)).

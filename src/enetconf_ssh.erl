@@ -223,11 +223,11 @@ get_server_capabilities(SessionId) ->
 
 %% @private
 get_parser_module(#hello{capabilities = Capabilities}) ->
-    case lists:member(?BASE_CAPABILITY, Capabilities) of
+    case lists:member({base, {1, 1}}, Capabilities) of
         true ->
             enetconf_fm_chunked;
         false ->
-            case lists:member(?BASE_CAPABILITY_OLD, Capabilities) of
+            case lists:member({base, {1, 0}}, Capabilities) of
                 true ->
                     enetconf_fm_eom;
                 false ->

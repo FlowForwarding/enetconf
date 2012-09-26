@@ -26,7 +26,7 @@
 
 -define(PORT, 8830).
 -define(TIMEOUT, 5000).
--define(SERVER_CAPABILITIES, []).
+-define(SERVER_CAPABILITIES, [{base, {1, 1}}]).
 -define(CONNECT_OPTS, [{port, ?PORT}, {user, "test"}, {password, "test"},
                        {silently_accept_hosts, true}]).
 -define(CONFIG, #xmlElement{name = test}).

@@ -66,7 +66,7 @@ do_parse(#xmlElement{name = rpc, attributes = Attrs, content = [Content]}) ->
     {ok, #rpc{message_id = MessageId,
               operation = Operation}};
 do_parse(#xmlElement{name = hello, content = Content}) ->
-    Capabilities = get_text_array(capabilities, Content),
+    Capabilities = capabilities(get_text_array(capabilities, Content)),
     SessionId = get_text('session-id', Content, integer),
     {ok, #hello{capabilities = Capabilities,
                 session_id = SessionId}}.
@@ -192,6 +192,56 @@ config(#xmlElement{name = config, content = [Content]}) ->
         _ ->
             {xml, Content}
     end.
+
+%% @private
+capabilities(Capabilities) ->
+    Caps = capabilities(Capabilities, []),
+    case lists:keyfind(base, 1, Caps) of
+        {base, Version} when Version =< {1, 1} ->
+            [C || {_, V} = C <- Caps, V =< Version];
+        _Else ->
+            throw({parse_error, {invalid_value, protocol}})
+    end.
+
+%% @private
+capabilities([], Capabilities) ->
+    lists:reverse(Capabilities);
+capabilities([Capability | Rest], Capabilities) ->
+    case capability(Capability) of
+        {unknown, _} ->
+            capabilities(Rest, Capabilities);
+        C ->
+            capabilities(Rest, [C | Capabilities])
+    end.
+
+%% @private
+capability(Capability) ->
+    [Ver2Bin, Ver1Bin, NameBin | _] = lists:reverse(re:split(Capability, "[:.]")),
+    Ver1 = list_to_integer(binary_to_list(Ver1Bin)),
+    Ver2 = list_to_integer(binary_to_list(Ver2Bin)),
+    Name = case NameBin of
+               <<"base">> ->
+                   base;
+               <<"writable-running">> ->
+                   'writable-running';
+               <<"candidate">> ->
+                   candidate;
+               <<"rollback-on-error">> ->
+                   'rollback-on-error';
+               <<"startup">> ->
+                   startup;
+               <<"url">> ->
+                   url;
+               <<"xpath">> ->
+                   xpath;
+               <<"confirmed-commit">> ->
+                   'confirmed-commit';
+               <<"validate">> ->
+                   validate;
+               _Else ->
+                   unknown
+           end,
+    {Name, {Ver1, Ver2}}.
 
 %%------------------------------------------------------------------------------
 %% Helper functions

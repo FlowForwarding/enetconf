@@ -128,7 +128,8 @@ init([Host, Opts]) ->
     {ok, Channel} = ssh_connection:session_channel(Pid, ?TIMEOUT),
     success = ssh_connection:subsystem(Pid, Channel, "netconf", ?TIMEOUT),
     Connection = {Pid, Channel},
-    {ok, _} = do_send(Connection, enetconf_xml:hello([]), enetconf_fm_eom),
+    Hello = enetconf_xml:hello([{base, {1, 1}}]),
+    {ok, _} = do_send(Connection, Hello, enetconf_fm_eom),
     {ok, #state{connection = Connection}}.
 
 %% @private

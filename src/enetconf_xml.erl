@@ -253,8 +253,16 @@ to_simple_form(Elements) when is_list(Elements) ->
 
 %% @private
 capabilities(Capabilities) ->
-    {capabilities, [{capability, [?BASE_CAPABILITY]}
-                    | [{capability, [Cap]} || Cap <- Capabilities]]}.
+    {capabilities, [{capability, [capability(Capability)]}
+                    || Capability <- Capabilities]}.
+
+%% @private
+capability({base, {Ver1, Ver2}}) ->
+    "urn:ietf:params:netconf:base:"
+        ++ integer_to_list(Ver1) ++ "." ++ integer_to_list(Ver2);
+capability({Name, {Ver1, Ver2}}) ->
+    "urn:ietf:params:netconf:capability:" ++ atom_to_list(Name)
+        ++ integer_to_list(Ver1) ++ "." ++ integer_to_list(Ver2).
 
 %% @private
 source({url, Url}) ->

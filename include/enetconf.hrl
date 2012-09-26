@@ -22,8 +22,6 @@
 -define(WARNING(Msg, Args), error_logger:warning_msg(Msg, Args)).
 -define(ERROR(Msg, Args), error_logger:error_msg(Msg, Args)).
 
--define(BASE_CAPABILITY, "urn:ietf:params:netconf:base:1.1").
--define(BASE_CAPABILITY_OLD, "urn:ietf:params:netconf:base:1.0").
 
 -type config_name() :: startup   %% :startup capability
                      | candidate %% :candidate capability
@@ -177,7 +175,19 @@
 -type rpc() :: #rpc{}
              | #rpc_reply{}.
 
+-type capability_name() :: base
+                         | 'writable-running'
+                         | candidate
+                         | 'rollback-on-error'
+                         | startup
+                         | url
+                         | xpath
+                         | 'confirmed-commit'
+                         | validate.
+
+-type capability() :: {capability_name(), {integer(), integer()}}.
+
 -record(hello, {
-          capabilities = [] :: [string()],
+          capabilities = [] :: [capability()],
           session_id :: integer() | undefined
          }).
