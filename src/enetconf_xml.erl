@@ -261,7 +261,7 @@ capability({base, {Ver1, Ver2}}) ->
     "urn:ietf:params:netconf:base:"
         ++ integer_to_list(Ver1) ++ "." ++ integer_to_list(Ver2);
 capability({Name, {Ver1, Ver2}}) ->
-    "urn:ietf:params:netconf:capability:" ++ atom_to_list(Name)
+    "urn:ietf:params:netconf:capability:" ++ atom_to_list(Name) ++ ":"
         ++ integer_to_list(Ver1) ++ "." ++ integer_to_list(Ver2).
 
 %% @private
