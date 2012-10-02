@@ -55,7 +55,8 @@ check(Capability, Capabilities) ->
 %% @doc Convert capability string to an internal representation.
 -spec convert(string()) -> capability() | {unknown, {integer(), integer()}}.
 convert(String) ->
-    [Ver2Bin, Ver1Bin, NameBin | _] = lists:reverse(re:split(String, "[:.]")),
+    [String2 | _] = re:split(String, "\\?"),
+    [Ver2Bin, Ver1Bin, NameBin | _] = lists:reverse(re:split(String2, "[:.]")),
     Ver1 = list_to_integer(binary_to_list(Ver1Bin)),
     Ver2 = list_to_integer(binary_to_list(Ver2Bin)),
     Name = case NameBin of

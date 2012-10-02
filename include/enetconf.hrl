@@ -24,7 +24,8 @@
 
 -define(CAPABILITY_RE,
         "^urn:ietf:params:netconf:"
-        "((base)|(capability:[a-z-]+)):[0-9]{1}\\.[0-9]{1}$").
+        "((base)|(capability:[a-z-]+)):[0-9]{1}\\.[0-9]{1}"
+        "(\\?[a-z]+=[a-z]+(,[a-z]+)*)?$").
 
 -type config_name() :: startup   %% :startup capability
                      | candidate %% :candidate capability
