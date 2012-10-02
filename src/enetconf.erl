@@ -54,7 +54,7 @@ stop(_Pid) ->
 %% @private
 init_global_session_id() ->
     ets:new(enetconf, [named_table, set, public, {read_concurrency, true}]),
-    ets:insert(enetconf, {session_id, -1}).
+    ets:insert(enetconf, {session_id, 0}).
 
 %% @private
 start_ssh_daemon() ->
