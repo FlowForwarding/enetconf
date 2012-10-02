@@ -472,9 +472,10 @@ to_simple_form(#xmlText{value = Value}) ->
 to_simple_form(Elements) when is_list(Elements) ->
     content_to_simple_form(Elements).
 
+%% @doc Remove namespace prefix from XML elements.
 %% @private
 name_to_simple_form(Name) ->
-    case re:split(atom_to_list(Name), ":") of
+    case re:split(atom_to_list(Name), ":", [{return, list}]) of
         [_Namespace, Element] ->
             list_to_atom(Element);
         [_Element] ->
