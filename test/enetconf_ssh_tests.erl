@@ -50,7 +50,7 @@ hello() ->
     {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
     {ok, Ok} = enetconf_client:close_session(C),
     ?assertEqual(enetconf_xml:ok("0"), Ok),
-    ?assertNot(is_process_alive(C)).
+    check_if_closed(C).
 
 get_config() ->
     {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
@@ -61,7 +61,7 @@ get_config() ->
 
     {ok, Ok} = enetconf_client:close_session(C),
     ?assertEqual(enetconf_xml:ok("1"), Ok),
-    ?assertNot(is_process_alive(C)).
+    check_if_closed(C).
 
 edit_config() ->
     {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
@@ -71,7 +71,7 @@ edit_config() ->
 
     {ok, Ok} = enetconf_client:close_session(C),
     ?assertEqual(enetconf_xml:ok("1"), Ok),
-    ?assertNot(is_process_alive(C)).
+    check_if_closed(C).
 
 copy_config() ->
     {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
@@ -81,7 +81,7 @@ copy_config() ->
 
     {ok, Ok} = enetconf_client:close_session(C),
     ?assertEqual(enetconf_xml:ok("1"), Ok),
-    ?assertNot(is_process_alive(C)).
+    check_if_closed(C).
 
 delete_config() ->
     {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
@@ -91,7 +91,7 @@ delete_config() ->
 
     {ok, Ok} = enetconf_client:close_session(C),
     ?assertEqual(enetconf_xml:ok("1"), Ok),
-    ?assertNot(is_process_alive(C)).
+    check_if_closed(C).
 
 lock() ->
     {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
@@ -101,7 +101,7 @@ lock() ->
 
     {ok, Ok} = enetconf_client:close_session(C),
     ?assertEqual(enetconf_xml:ok("1"), Ok),
-    ?assertNot(is_process_alive(C)).
+    check_if_closed(C).
 
 unlock() ->
     {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
@@ -111,7 +111,7 @@ unlock() ->
 
     {ok, Ok} = enetconf_client:close_session(C),
     ?assertEqual(enetconf_xml:ok("1"), Ok),
-    ?assertNot(is_process_alive(C)).
+    check_if_closed(C).
 
 get() ->
     {ok, C} = enetconf_client:connect("localhost", ?CONNECT_OPTS),
@@ -122,7 +122,7 @@ get() ->
 
     {ok, Ok} = enetconf_client:close_session(C),
     ?assertEqual(enetconf_xml:ok("1"), Ok),
-    ?assertNot(is_process_alive(C)).
+    check_if_closed(C).
 
 %% Fixtures --------------------------------------------------------------------
 
@@ -151,3 +151,9 @@ teardown(_) ->
     application:stop(xmerl),
     application:stop(ssh),
     file:delete("enetconf").
+
+%% Helpers ---------------------------------------------------------------------
+
+check_if_closed(C) ->
+    timer:sleep(100),
+    ?assertNot(is_process_alive(C)).
