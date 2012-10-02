@@ -38,8 +38,19 @@
         "      urn:ietf:params:netconf:capability:url:1.0"
         "    </capability>"
         "  </capabilities>"
-        "  <session-id>1</session-id>"
         "</hello>").
+
+-define(GET_CONFIG_RPC,
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<rpc message-id=\"2\""
+        "     xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"
+        "  <get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"
+        "    <source>"
+        "      <running/>"
+        "    </source>"
+        "    <filter type=\"xpath\" select=\"/some-configuration\"/>"
+        "  </get-config>"
+        "</rpc>").
 
 -define(EDIT_CONFIG_RPC,
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
@@ -55,18 +66,6 @@
         "      <some-configuration/>"
         "    </config>"
         "  </edit-config>"
-        "</rpc>").
-
--define(GET_CONFIG_RPC,
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-        "<rpc message-id=\"2\""
-        "     xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"
-        "  <get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"
-        "    <source>"
-        "      <running/>"
-        "    </source>"
-        "    <filter type=\"xpath\" select=\"/some-configuration\"/>"
-        "  </get-config>"
         "</rpc>").
 
 -define(COPY_CONFIG_RPC,
@@ -148,8 +147,8 @@ parsing_test_() ->
      fun setup/0,
      fun teardown/1,
      [{"Test hello message", fun hello/0},
-      {"Test rpc 'edit-config' operation", fun edit_config/0},
       {"Test rpc 'get-config' operation", fun get_config/0},
+      {"Test rpc 'edit-config' operation", fun edit_config/0},
       {"Test rpc 'copy-config' operation", fun copy_config/0},
       {"Test rpc 'delete-config' operation", fun delete_config/0},
       {"Test rpc 'lock' operation", fun lock/0},
@@ -160,9 +159,16 @@ parsing_test_() ->
 
 hello() ->
     Capabilities = [{base, {1, 1}}, {url, {1, 0}}],
-    Hello = #hello{capabilities = Capabilities,
-                   session_id = 1},
+    Hello = #hello{capabilities = Capabilities},
     ?assertEqual({ok, Hello}, enetconf_parser:parse(?HELLO)).
+
+get_config() ->
+    Filter = {xpath, "/some-configuration"},
+    GetConfig = #get_config{source = running,
+                            filter = Filter},
+    RPC = #rpc{message_id = "2",
+               operation = GetConfig},
+    ?assertEqual({ok, RPC}, enetconf_parser:parse(?GET_CONFIG_RPC)).
 
 edit_config() ->
     EditConfig = #edit_config{target = candidate,
@@ -175,13 +181,6 @@ edit_config() ->
     Model = Parsed#rpc{operation = Operation#edit_config{config = undefined}},
     ?assertEqual(RPC, Model),
     ?assertEqual('some-configuration', XML#xmlElement.name).
-
-get_config() ->
-    GetConfig = #get_config{source = running,
-                            filter = {xpath, "/some-configuration"}},
-    RPC = #rpc{message_id = "2",
-               operation = GetConfig},
-    ?assertEqual({ok, RPC}, enetconf_parser:parse(?GET_CONFIG_RPC)).
 
 copy_config() ->
     Url = "https://mydomain.com/new-config.xml",
@@ -232,13 +231,7 @@ kill_session() ->
 
 setup() ->
     file:make_symlink("..", "enetconf"),
-    code:add_path("./enetconf/ebin"),
-
-    SchemaPath = filename:join(code:priv_dir(enetconf), "netconf-1.0.xsd"),
-    {ok, State} = xmerl_xsd:process_schema(SchemaPath),
-    ets:new(enetconf, [named_table, set, public, {read_concurrency, true}]),
-    ets:insert(enetconf, {schema, State}).
+    code:add_path("./enetconf/ebin").
 
 teardown(_) ->
-    ets:delete(enetconf),
     file:delete("enetconf").

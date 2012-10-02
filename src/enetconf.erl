@@ -34,7 +34,6 @@
 
 %% @private
 start(_, _) ->
-    load_schema(),
     init_global_session_id(),
     {ok, Pid} = start_ssh_daemon(),
     {ok, Pid, Pid}.
@@ -53,17 +52,8 @@ stop(_Pid) ->
 %%------------------------------------------------------------------------------
 
 %% @private
-load_schema() ->
-    %% Process the schema
-    SchemaPath = filename:join(code:priv_dir(enetconf), "netconf-1.0.xsd"),
-    {ok, State} = xmerl_xsd:process_schema(SchemaPath),
-
-    %% Save it to an ets table
-    ets:new(enetconf, [named_table, set, public, {read_concurrency, true}]),
-    ets:insert(enetconf, {schema, State}).
-
-%% @private
 init_global_session_id() ->
+    ets:new(enetconf, [named_table, set, public, {read_concurrency, true}]),
     ets:insert(enetconf, {session_id, -1}).
 
 %% @private

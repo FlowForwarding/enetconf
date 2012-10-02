@@ -22,7 +22,8 @@
 
 %% API
 -export([versions/1,
-         check/2]).
+         check/2,
+         convert/1]).
 
 -include("enetconf.hrl").
 
@@ -50,6 +51,26 @@ versions({base, {1, 1}}) ->
 -spec check(capability(), [capability()]) -> boolean().
 check(Capability, Capabilities) ->
     lists:memeber(Capability, Capabilities).
+
+%% @doc Convert capability string to an internal representation.
+-spec convert(string()) -> capability() | {unknown, {integer(), integer()}}.
+convert(String) ->
+    [Ver2Bin, Ver1Bin, NameBin | _] = lists:reverse(re:split(String, "[:.]")),
+    Ver1 = list_to_integer(binary_to_list(Ver1Bin)),
+    Ver2 = list_to_integer(binary_to_list(Ver2Bin)),
+    Name = case NameBin of
+               <<"base">>              -> base;
+               <<"writable-running">>  -> 'writable-running';
+               <<"candidate">>         -> candidate;
+               <<"rollback-on-error">> -> 'rollback-on-error';
+               <<"startup">>           -> startup;
+               <<"url">>               -> url;
+               <<"xpath">>             -> xpath;
+               <<"confirmed-commit">>  -> 'confirmed-commit';
+               <<"validate">>          -> validate;
+               _                       -> unknown
+           end,
+    {Name, {Ver1, Ver2}}.
 
 %%------------------------------------------------------------------------------
 %% Internal functions

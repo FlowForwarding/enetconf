@@ -22,24 +22,29 @@
 -define(WARNING(Msg, Args), error_logger:warning_msg(Msg, Args)).
 -define(ERROR(Msg, Args), error_logger:error_msg(Msg, Args)).
 
+-define(CAPABILITY_RE,
+        "^urn:ietf:params:netconf:"
+        "((base)|(capability:[a-z-]+)):[0-9]{1}\\.[0-9]{1}$").
 
 -type config_name() :: startup   %% :startup capability
                      | candidate %% :candidate capability
                      | running.
 
+-type xml() :: {config, record()}.
+
 -type url() :: {url, string()}. %% :url capability
 
 -type target() :: config_name()
-                | url().   %% :url capability
+                | url().    %% :url capability
 
 -type source() :: config_name()
                 | xml()
-                | url().   %% :url capability
+                | url().    %% :url capability
 
 -type get_config_source() :: config_name()
-                           | url().   %% :url capability
+                           | url().    %% :url capability
 
--type filter() :: {subtree, xml()}
+-type filter() :: {subtree, record()}
                 | {xpath, string()} %% :xpath capability
                 | undefined.
 
@@ -47,8 +52,9 @@
                            | replace
                            | none.
 
--type test_option() :: test_then_set %% :validate capability
-                     | set           %% :validate capability
+-type test_option() :: 'test-then-set' %% :validate capability
+                     | set             %% :validate capability
+                     | 'test-only'     %% :validate capability
                      | undefined.
 
 -type error_option() :: stop_on_error
@@ -59,12 +65,10 @@
 -type config() :: xml()
                 | {url, string()}. %% :url capability
 
--type xml() :: {xml, record()}.
-
 -record(edit_config, {
           target :: target(),
           default_operation = merge :: default_operation(),
-          test_option :: test_option(), %% :validate capability
+          test_option :: test_option(),    %% :validate capability
           error_option :: error_option(),
           config :: config()
          }).
@@ -112,12 +116,13 @@
                    | #kill_session{}.
                    %% | #commit{}          %% :candidate capability
                    %% | #discard_changes{} %% :candidate capability
+                   %% | #cancel_commit{}   %% :confirmed-commit capability
                    %% | #validate{}.       %% :validate capability
 
 -record(rpc, {
           message_id :: string(),
           operation :: operation(),
-          attibutes = [] :: [{atom(), term()}]
+          attributes = [] :: [{atom(), term()}]
          }).
 
 -type error_type() :: transport
@@ -188,6 +193,5 @@
 -type capability() :: {capability_name(), {integer(), integer()}}.
 
 -record(hello, {
-          capabilities = [] :: [capability()],
-          session_id :: integer() | undefined
+          capabilities = [] :: [capability()]
          }).

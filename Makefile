@@ -8,9 +8,11 @@ compile: rebar
 
 test: rebar compile
 	@./rebar eunit
+	@rm -f .eunit/enetconf
 
 clean: rebar
 	@./rebar clean
+	@rm -f .eunit/enetconf
 
 run: compile
 	@erl -pa ../$(APP)/ebin -eval \
