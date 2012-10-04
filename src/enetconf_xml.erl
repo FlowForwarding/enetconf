@@ -61,9 +61,6 @@
          partial_operation/4,
          malformed_message/1]).
 
-%% API: Helpers
--export([to_simple_form/1]).
-
 -include_lib("xmerl/include/xmerl.hrl").
 -include("enetconf.hrl").
 
@@ -127,7 +124,7 @@ ok(MessageId) ->
 
 %% @doc Return the configuration.
 config_reply(MessageId, Config) ->
-    rpc_reply(MessageId, [{data, [to_simple_form(Config)]}]).
+    rpc_reply(MessageId, [{data, [Config]}]).
 
 %% Errors ----------------------------------------------------------------------
 
@@ -232,21 +229,6 @@ partial_operation(MessageId, OkElement, ErrElement, NoopElement) ->
 malformed_message(MessageId) ->
     rpc_reply(MessageId, rpc_error('malformed-message', rpc, error, none)).
 
-%% Helpers ---------------------------------------------------------------------
-
-%% @doc Convert XML records returned by xmerl to a simple form tuples.
-%% It will output only the xmlElement and xmlText records and skip all the
-%% unnecessary whitespace xmlTexts.
--spec to_simple_form(#xmlElement{} | list()) -> tuple().
-to_simple_form(#xmlElement{name = Name,
-                           attributes = Attrs,
-                           content = Content}) ->
-    {Name, attributes(Attrs), content(Content)};
-to_simple_form(#xmlText{value = Value}) ->
-    string:strip(Value);
-to_simple_form(Elements) when is_list(Elements) ->
-    content(Elements).
-
 %%------------------------------------------------------------------------------
 %% Simple form creation functions
 %%------------------------------------------------------------------------------
@@ -268,7 +250,7 @@ capability({Name, {Ver1, Ver2}}) ->
 source({url, Url}) ->
     {source, [{url, [Url]}]};
 source({xml, XML}) ->
-    {source, [to_simple_form(XML)]};
+    {source, [{config, XML}]};
 source(Name) ->
     {source, [Name]}.
 
@@ -286,41 +268,15 @@ target(Name) ->
 
 %% @private
 config({xml, XML}) ->
-    {config, [to_simple_form(XML)]};
+    {config, [XML]};
 config({url, Url}) ->
     {config, [{url, [Url]}]}.
 
 %% @private
 filter({subtree, Subtree}) ->
-    {filter, [{type, subtree}], [to_simple_form(Subtree)]};
+    {filter, [{type, subtree}], [Subtree]};
 filter({xpath, Select}) ->
     {filter, [{type, xpath}, {select, Select}], []}.
-
-%%------------------------------------------------------------------------------
-%% Simple form conversion functions
-%%------------------------------------------------------------------------------
-
-%% @private
-content(Elements) ->
-    content(Elements, []).
-
-%% @private
-content([], SimpleForms) ->
-    lists:reverse(SimpleForms);
-content([Element | Rest], SimpleForms) when is_record(Element, xmlElement) or
-                                            is_record(Element, xmlText) ->
-    case to_simple_form(Element) of
-        "" ->
-            content(Rest, SimpleForms);
-        SimpleForm ->
-            content(Rest, [SimpleForm | SimpleForms])
-    end;
-content([_ | Rest], SimpleForms) ->
-    content(Rest, SimpleForms).
-
-%% @private
-attributes(Attrs) ->
-    [{Name, Value} || #xmlAttribute{name = Name, value = Value} <- Attrs].
 
 %%------------------------------------------------------------------------------
 %% Helper functions
