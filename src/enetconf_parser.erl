@@ -215,9 +215,9 @@ url(Url) ->
     get_text(ErrorOption, atom).
 
 %% @private
-config({config, _, [Config]}) ->
+config({config, _, [XML]} = Config) ->
     [] = attributes([], Config),
-    {xml, to_xmerl(Config)};
+    {xml, to_xmerl(XML)};
 config({config, _, _}) ->
     throw({bad_element, application, config}).
 
