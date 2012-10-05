@@ -51,7 +51,7 @@
          }).
 
 -define(DEFAULT_PORT, 830).
--define(TIMEOUT, 3000).
+-define(TIMEOUT, 30000).
 
 %%------------------------------------------------------------------------------
 %% API functions
@@ -67,48 +67,48 @@ connect(Host, Opts) ->
 -spec get_config(pid(), get_config_source()) -> {ok, Reply :: term()} |
                                                 {error, timeout}.
 get_config(Pid, Source) ->
-    gen_server:call(Pid, {get_config, Source}).
+    gen_server:call(Pid, {get_config, Source}, infinity).
 
 %% @doc Edit configuration.
 -spec edit_config(pid(), target(), config()) -> {ok, Reply :: term()} |
                                                 {error, timeout}.
 edit_config(Pid, Target, Config) ->
-    gen_server:call(Pid, {edit_config, Target, Config}).
+    gen_server:call(Pid, {edit_config, Target, Config}, infinity).
 
 %% @doc Copy configuration.
 -spec copy_config(pid(), source(), target()) -> {ok, Reply :: term()} |
                                                 {error, timeout}.
 copy_config(Pid, Source, Target) ->
-    gen_server:call(Pid, {copy_config, Source, Target}).
+    gen_server:call(Pid, {copy_config, Source, Target}, infinity).
 
 %% @doc Delete configuration.
 -spec delete_config(pid(), target()) -> {ok, Reply :: term()} |
                                         {error, timeout}.
 delete_config(Pid, Target) ->
-    gen_server:call(Pid, {delete_config, Target}).
+    gen_server:call(Pid, {delete_config, Target}, infinity).
 
 %% @doc Lock configuration.
 -spec lock(pid(), target()) -> {ok, Reply :: term()} |
                                {error, timeout}.
 lock(Pid, Target) ->
-    gen_server:call(Pid, {lock, Target}).
+    gen_server:call(Pid, {lock, Target}, infinity).
 
 %% @doc Unlock configuration.
 -spec unlock(pid(), target()) -> {ok, Reply :: term()} |
                                  {error, timeout}.
 unlock(Pid, Target) ->
-    gen_server:call(Pid, {unlock, Target}).
+    gen_server:call(Pid, {unlock, Target}, infinity).
 
 %% @doc Unlock configuration.
 -spec get(pid(), filter()) -> {ok, Reply :: term()} |
                               {error, timeout}.
 get(Pid, Filter) ->
-    gen_server:call(Pid, {get, Filter}).
+    gen_server:call(Pid, {get, Filter}, infinity).
 
 %% @doc Close the session.
 -spec close_session(pid()) -> {ok, Reply :: term()} | {error, timeout}.
 close_session(Pid) ->
-    gen_server:call(Pid, close_session).
+    gen_server:call(Pid, close_session, infinity).
 
 %%------------------------------------------------------------------------------
 %% gen_server callbacks
@@ -205,10 +205,21 @@ do_send({Pid, Channel}, Message, Module) ->
     ssh_connection:send(Pid, Channel, EncodedMessage),
 
     %% Wait for the reply
+    {ok, Parser} = Module:new_parser(),
+    receive_loop(Pid, Channel, Module, Parser).
+
+receive_loop(Pid, Channel, Module, Parser) ->
     receive
         {ssh_cm, Pid, {data, Channel, 0, Data}} ->
-            {ok, [Reply], _} = Module:decode(Data),
-            {ok, Reply}
+            %% io:format("Received: ~p~n", [Data]),
+            case Module:parse(Data, Parser) of
+                {ok, [Reply], _} ->
+                    {ok, Reply};
+                {ok, [], NewParser} ->
+                    receive_loop(Pid, Channel, Module, NewParser)
+            end;
+        Else ->
+            io:format("Else: ~p~n", [Else])
     after
         ?TIMEOUT ->
             {error, timeout}
