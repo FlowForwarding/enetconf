@@ -240,6 +240,8 @@ get_error(MessageId, {in_use, Type}) ->
     enetconf_xml:in_use(MessageId, Type);
 get_error(MessageId, {invalid_value, Type}) ->
     enetconf_xml:invalid_value(MessageId, Type);
+get_error(MessageId, data_missing) ->
+    enetconf_xml:data_missing(MessageId);
 get_error(MessageId, _) ->
     %% TODO: Return other errors
     enetconf_xml:invalid_value(MessageId, application).
