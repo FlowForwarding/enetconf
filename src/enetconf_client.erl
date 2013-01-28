@@ -30,6 +30,7 @@
          delete_config/2,
          lock/2,
          unlock/2,
+         get/1,
          get/2,
          close_session/1]).
 
@@ -99,7 +100,13 @@ lock(Pid, Target) ->
 unlock(Pid, Target) ->
     gen_server:call(Pid, {unlock, Target}, infinity).
 
-%% @doc Unlock configuration.
+
+%% @doc Get configuration and state.
+-spec get(pid()) -> {ok, Reply :: term()} | {error, timeout}.
+get(Pid) ->
+    get(Pid, undefined).
+
+%% @doc Get configuration and state.
 -spec get(pid(), filter()) -> {ok, Reply :: term()} |
                               {error, timeout}.
 get(Pid, Filter) ->
