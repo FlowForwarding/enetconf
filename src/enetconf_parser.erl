@@ -121,9 +121,9 @@ do_parse(_) ->
 'edit-config'(EditConfig) ->
     [] = attributes([], EditConfig),
     Content = content([{required, target},
-                       {optional, 'default-operation'},
+                       {{optional, merge}, 'default-operation'},
                        {optional, 'test-option'},
-                       {optional, 'error-option'},
+                       {{optional, 'stop-on-error'}, 'error-option'},
                        {choice, [url, config]}], EditConfig),
     [Target, DefaultOperation, TestOption, ErrorOption, Config] = Content,
     #edit_config{target = Target,
@@ -323,6 +323,8 @@ content([{Type, Name} | Rest] = List, Parent, Content, Found) ->
                     throw({missing_element, layer(Name), Name});
                 optional ->
                     content(Rest, Parent, Content, [undefined | Found]);
+                {optional, Default} ->
+                    content(Rest, Parent, Content, [Default | Found]);
                 list ->
                     content(Rest, Parent, Content, Found)
             end

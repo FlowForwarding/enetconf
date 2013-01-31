@@ -194,8 +194,10 @@ execute_rpc(#get_config{source = Source,
                         filter = Filter}, SessionId, Callback) ->
     Callback:handle_get_config(SessionId, Source, Filter);
 execute_rpc(#edit_config{target = Target,
-                         config = Config}, SessionId, Callback) ->
-    Callback:handle_edit_config(SessionId, Target, Config);
+                         config = Config,
+                         default_operation = DefaultOp,
+                         error_option = OnError}, SessionId, Callback) ->
+    Callback:handle_edit_config(SessionId, Target, Config, DefaultOp, OnError);
 execute_rpc(#copy_config{source = Source,
                          target = Target}, SessionId, Callback) ->
     Callback:handle_copy_config(SessionId, Source, Target);
