@@ -244,6 +244,10 @@ get_error(MessageId, {invalid_value, Type}) ->
     enetconf_xml:invalid_value(MessageId, Type);
 get_error(MessageId, data_missing) ->
     enetconf_xml:data_missing(MessageId);
+get_error(MessageId, data_exists) ->
+    enetconf_xml:data_exists(MessageId);
+get_error(MessageId, {operation_not_supported, Type}) ->
+    enetconf_xml:operation_not_supported(MessageId, Type);
 get_error(MessageId, _) ->
     %% TODO: Return other errors
     enetconf_xml:invalid_value(MessageId, application).
