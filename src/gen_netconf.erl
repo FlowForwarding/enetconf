@@ -31,7 +31,9 @@
                                                    error().
 
 -callback handle_edit_config(SessionId :: integer(), Target :: target(),
-                             Config :: config()) -> ok | error().
+                             Config :: config(),
+                             DefaultOperation :: default_operation(),
+                             ErrorOption :: error_option()) -> ok | error().
 
 -callback handle_copy_config(SessionId :: integer(), Source :: source(),
                              Target :: target()) -> ok | error().
