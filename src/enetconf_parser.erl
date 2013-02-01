@@ -516,6 +516,9 @@ attributes_to_simple_form(Attrs) ->
 %% @private
 to_xmerl({Name, Attrs, Content}) ->
     #xmlElement{name = Name,
+                namespace = #xmlNamespace{
+                               default = 'urn:onf:of111:config:yang',
+                               nodes = []},
                 attributes = attributes_to_xmerl(Attrs, []),
                 content = content_to_xmerl(Content, [])};
 to_xmerl(Text) when is_list(Text) ->
