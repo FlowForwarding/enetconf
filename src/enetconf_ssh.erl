@@ -194,8 +194,10 @@ execute_rpc(#get_config{source = Source,
                         filter = Filter}, SessionId, Callback) ->
     Callback:handle_get_config(SessionId, Source, Filter);
 execute_rpc(#edit_config{target = Target,
-                         config = Config}, SessionId, Callback) ->
-    Callback:handle_edit_config(SessionId, Target, Config);
+                         config = Config,
+                         default_operation = DefaultOp,
+                         error_option = OnError}, SessionId, Callback) ->
+    Callback:handle_edit_config(SessionId, Target, Config, DefaultOp, OnError);
 execute_rpc(#copy_config{source = Source,
                          target = Target}, SessionId, Callback) ->
     Callback:handle_copy_config(SessionId, Source, Target);
@@ -240,6 +242,14 @@ get_error(MessageId, {in_use, Type}) ->
     enetconf_xml:in_use(MessageId, Type);
 get_error(MessageId, {invalid_value, Type}) ->
     enetconf_xml:invalid_value(MessageId, Type);
+get_error(MessageId, data_missing) ->
+    enetconf_xml:data_missing(MessageId);
+get_error(MessageId, data_exists) ->
+    enetconf_xml:data_exists(MessageId);
+get_error(MessageId, {operation_not_supported, Type}) ->
+    enetconf_xml:operation_not_supported(MessageId, Type);
+get_error(MessageId, malformed_message) ->
+    enetconf_xml:malformed_message(MessageId);
 get_error(MessageId, _) ->
     %% TODO: Return other errors
     enetconf_xml:invalid_value(MessageId, application).

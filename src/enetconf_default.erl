@@ -24,7 +24,7 @@
 
 %% gen_netconf callbacks
 -export([handle_get_config/3,
-         handle_edit_config/3,
+         handle_edit_config/5,
          handle_copy_config/3,
          handle_delete_config/2,
          handle_lock/2,
@@ -60,7 +60,7 @@ handle_get_config(_SessionId, Source, Filter) ->
     {ok, ?TEST_CONFIG}.
 
 %% @private
-handle_edit_config(_SessionId, Target, Config) ->
+handle_edit_config(_SessionId, Target, Config, _DefaultOp, _OnError) ->
     To = case Target of
              {url, Url} ->
                  io_lib:format("Edit config at ~p", [Url]);
