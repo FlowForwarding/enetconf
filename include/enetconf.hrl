@@ -58,9 +58,9 @@
                      | 'test-only'     %% :validate capability
                      | undefined.
 
--type error_option() :: stop_on_error
-                      | continue_on_error
-                      | rollback_on_error %% :rollback-on-error capability
+-type error_option() :: 'stop-on-error'
+                      | 'continue-on-error'
+                      | 'rollback-on-error' %% :rollback-on-error capability
                       | undefined.
 
 -type config() :: xml()
@@ -70,7 +70,7 @@
           target :: target(),
           default_operation = merge :: default_operation(),
           test_option :: test_option(),    %% :validate capability
-          error_option :: error_option(),
+          error_option = 'stop-on-error' :: error_option(),
           config :: config()
          }).
 

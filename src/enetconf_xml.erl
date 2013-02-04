@@ -288,8 +288,13 @@ rpc_error(Tag, Type, Severity, Info) ->
       [{'error-tag', [atom_to_list(Tag)]},
        {'error-type', [atom_to_list(Type)]},
        {'error-severity', [atom_to_list(Severity)]}]
-      ++ [{'error-info', [{Name, [to_list(Value)]}
-                          || {Name, Value} <- Info, Info /= none]}]}].
+      ++ case Info of
+             none ->
+                 [];
+             _Else ->
+                 [{'error-info', [{Name, [to_list(Value)]}
+                                  || {Name, Value} <- Info]}]
+         end}].
 
 %% @private
 rpc(MessageId, Content) ->
