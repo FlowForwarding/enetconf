@@ -283,13 +283,19 @@ filter({xpath, Select}) ->
 %%------------------------------------------------------------------------------
 
 %% @private
+rpc_error_info(none) ->
+    [];
+rpc_error_info(Info) ->
+    [{'error-info',
+	[{Name, [to_list(Value)]} || {Name, Value} <- Info, Info /= none]}].
+
+%% @private
 rpc_error(Tag, Type, Severity, Info) ->
     [{'rpc-error',
       [{'error-tag', [atom_to_list(Tag)]},
        {'error-type', [atom_to_list(Type)]},
-       {'error-severity', [atom_to_list(Severity)]}]
-      ++ [{'error-info', [{Name, [to_list(Value)]}
-                          || {Name, Value} <- Info, Info /= none]}]}].
+       {'error-severity', [atom_to_list(Severity)]}] ++
+	rpc_error_info(Info)}].
 
 %% @private
 rpc(MessageId, Content) ->
