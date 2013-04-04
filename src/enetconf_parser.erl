@@ -499,6 +499,15 @@ content_to_simple_form([#xmlText{} = Text | Rest], SimpleForms) ->
     case to_simple_form(Text) of
         [] ->
             content_to_simple_form(Rest, SimpleForms);
+        [String] when is_list(String) ->
+            case SimpleForms of
+                [] ->
+                    content_to_simple_form(Rest, [String | SimpleForms]);
+                [Last | More] when is_list(Last) ->
+                    content_to_simple_form(Rest, [Last ++ String | More]);
+                _Else ->
+                    throw(malformed_message)
+            end;
         _Else ->
             throw(malformed_message)
     end;

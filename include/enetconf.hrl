@@ -23,9 +23,8 @@
 -define(ERROR(Msg, Args), error_logger:error_msg(Msg, Args)).
 
 -define(CAPABILITY_RE,
-        "^urn:[a-z]+:params:netconf:"
-        "((base)|(capability:[a-z-]+)):[0-9]{1}\\.[0-9]{1}"
-        "(\\?[a-z]+=[a-z]+(,[a-z]+)*)?$").
+        "^urn:[a-z:]+:((netconf:base)|(netconf:capability:[a-z-]+)"
+        "|(ns:netconf:[a-z-]+)):[0-9]{1}\\.[0-9]{1}(\\?.+)?$").
 
 -type config_name() :: startup   %% :startup capability
                      | candidate %% :candidate capability
