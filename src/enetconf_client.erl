@@ -124,6 +124,7 @@ close_session(Pid) ->
 %% @private
 init([Host, Opts]) ->
     application:start(crypto),
+    application:start(public_key),
     application:start(ssh),
     Port = case lists:keyfind(port, 1, Opts) of
                false ->
