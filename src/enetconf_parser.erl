@@ -21,7 +21,8 @@
 -module(enetconf_parser).
 
 %% API
--export([parse/1]).
+-export([parse/1,
+         convert/1]).
 
 %% Internal exports
 -export([capabilities/1,
@@ -89,6 +90,17 @@ parse(XML) ->
             {error, malformed_message};
         throw:ParseError ->
             {error, ParseError}
+    end.
+
+convert(Binary) when is_binary(Binary) ->
+    convert(binary_to_list(Binary));
+convert(XML) ->
+    try
+        {ScannedXML, _Rest} = xmerl_scan:string(XML, [{quiet, true}]),
+        to_simple_form(ScannedXML)
+    catch
+        exit:{fatal, {_, _, _, _}} ->
+            {error, malformed_message}
     end.
 
 %%------------------------------------------------------------------------------
