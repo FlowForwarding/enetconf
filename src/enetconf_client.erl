@@ -132,7 +132,8 @@ init([Host, Opts]) ->
                {port, P} ->
                    P
            end,
-    {ok, Pid} = ssh:connect(Host, Port, lists:keydelete(port, 1, Opts)),
+    {ok, Pid} = ssh:connect(Host, Port, [{silently_accept_hosts, true}
+                                         | lists:keydelete(port, 1, Opts)]),
     {ok, Channel} = ssh_connection:session_channel(Pid, ?TIMEOUT),
     success = ssh_connection:subsystem(Pid, Channel, "netconf", ?TIMEOUT),
     Connection = {Pid, Channel},
