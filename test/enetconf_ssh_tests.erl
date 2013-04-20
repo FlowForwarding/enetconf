@@ -142,6 +142,8 @@ setup() ->
     application:set_env(enetconf, sshd_port, ?PORT),
     application:set_env(enetconf, sshd_shell, {undefined, undefined, []}),
     application:set_env(enetconf, sshd_user_passwords, [{"test", "test"}]),
+    application:start(crypto),
+    application:start(public_key),
     application:start(ssh),
     application:start(xmerl),
     application:start(enetconf).
