@@ -370,7 +370,16 @@ choice([Name | Rest], Parent, Content, Found) ->
 
 %% @private
 attributes(LookingFor, {Element, Attributes, _}) ->
-    NoNamespace = lists:keydelete(xmlns, 1, Attributes),
+    {ok, Re} = re:compile("^xmlns.*$"),
+    Filter = fun({Name, _Value}) ->
+                     case re:run(atom_to_list(Name), Re) of
+                         {match, _} ->
+                             false;
+                         nomatch ->
+                             true
+                     end
+             end,
+    NoNamespace = lists:filter(Filter, Attributes),
     attributes(LookingFor, Element, NoNamespace, []).
 
 %% @private
