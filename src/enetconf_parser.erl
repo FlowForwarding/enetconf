@@ -234,23 +234,39 @@ config({config, _, _}) ->
     throw({bad_element, application, config}).
 
 %% @private
-filter({filter, Attrs, Content} = Filter) ->
-    case get_attr(type, Filter, atom, required) of
+filter({filter, _Attrs, _Content} = Filter) ->
+    case get_attr(type, Filter, atom, optional) of
+        %% NETCONF RFC 6241 page 36 specifies that filter MAY contain
+        %% type attribute. It this attribute is not present, it defaults to
+        %% subtree filtering.
+        %% http://tools.ietf.org/html/rfc6241#page-36
+        undefined ->
+            filter_subtree(Filter);
         subtree ->
-            NewFilter = {filter, lists:keydelete(type, 1, Attrs), []},
-            [] = attributes([], NewFilter),
-            case Content of
-                [Subtree] ->
-                    {subtree, to_xmerl(Subtree)};
-                _Else ->
-                    throw({bad_element, application, filter})
-            end;
+            filter_subtree(Filter);
         xpath ->
-            [] = content([], Filter),
-            NewFilter = {filter, lists:keydelete(type, 1, Attrs), []},
-            [Select] = attributes([{required, select}], NewFilter),
-            {xpath, Select}
+            filter_xpath(Filter)
     end.
+
+%% @private
+filter_subtree({filter, Attrs, Content}) ->
+    NewFilter = {filter, lists:keydelete(type, 1, Attrs), []},
+    [] = attributes([], NewFilter),
+    case Content of
+        [] ->
+            no_filter;
+        [Subtree] ->
+            {subtree, to_xmerl(Subtree)};
+        _Else ->
+            throw({bad_element, application, filter})
+    end.
+
+%% @private
+filter_xpath({filter, Attrs, _Content} = Filter) ->
+    [] = content([], Filter),
+    NewFilter = {filter, lists:keydelete(type, 1, Attrs), []},
+    [Select] = attributes([{required, select}], NewFilter),
+    {xpath, Select}.
 
 %% @private
 'session-id'(SessionId) ->
