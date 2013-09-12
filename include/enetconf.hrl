@@ -30,7 +30,7 @@
                      | candidate %% :candidate capability
                      | running.
 
--type xml() :: {config, record()}.
+-type xml() :: {config, tuple()}.
 
 -type url() :: {url, string()}. %% :url capability
 
@@ -44,7 +44,7 @@
 -type get_config_source() :: config_name()
                            | url().    %% :url capability
 
--type filter() :: {subtree, record()}
+-type filter() :: {subtree, tuple()}
                 | {xpath, string()} %% :xpath capability
                 | undefined.
 
