@@ -39,7 +39,7 @@
           channel_id :: ssh_channel:channel_id(),
           session_id :: integer(),
           parsing_module :: enetconf_frame_end | enetconf_frame_chunk,
-          parser :: record(),
+          parser :: tuple(),
           callback_module :: atom()
          }).
 
