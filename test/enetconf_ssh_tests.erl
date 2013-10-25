@@ -142,17 +142,28 @@ setup() ->
     application:set_env(enetconf, sshd_port, ?PORT),
     application:set_env(enetconf, sshd_shell, {undefined, undefined, []}),
     application:set_env(enetconf, sshd_user_passwords, [{"test", "test"}]),
-    application:start(crypto),
-    application:start(public_key),
-    application:start(ssh),
-    application:start(xmerl),
-    application:start(enetconf).
+    app_start(crypto),
+    app_start(asn1),
+    app_start(public_key),
+    app_start(ssh),
+    app_start(xmerl),
+    app_start(enetconf).
 
 teardown(_) ->
     application:stop(enetconf),
     application:stop(xmerl),
     application:stop(ssh),
     file:delete("enetconf").
+
+app_start(App) ->
+    case application:start(App) of
+        ok ->
+            ok;
+        {error, {already_started, App}} ->
+            ok;
+        {error, E} ->
+            error({app_start_error, E}, [App])
+    end.
 
 %% Helpers ---------------------------------------------------------------------
 

@@ -16,7 +16,7 @@ clean: rebar
 
 run: compile
 	@erl -pa ../$(APP)/ebin -eval \
-	 "[application:start(A) || A <- [crypto, ssh, xmerl, enetconf]]"
+	 "[ok = application:start(A) || A <- [crypto, asn1, public_key, ssh, xmerl, enetconf]]"
 
 rebar:
 	@wget -q http://cloud.github.com/downloads/basho/rebar/rebar
