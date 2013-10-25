@@ -1,0 +1,5 @@
+language: erlang
+# We don't support R14.  Let's include a few recent OTP releases.
+otp_release:
+  - R15B03
+  - R16B
