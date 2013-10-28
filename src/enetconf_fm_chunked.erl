@@ -130,12 +130,17 @@ do_parse(Binary, #chunk_parser{stack = Stack} = Parser, Chunks) ->
 %% Helper functions
 %%------------------------------------------------------------------------------
 
+%% binary_to_integer/1 and integer_to_binary/1 were added as BIFs in
+%% R16B.  Let's compile them conditionally, if we're using an earlier
+%% release.
+-ifndef(binary_integer_bifs).
 %% @private
 integer_to_binary(N) ->
     list_to_binary(integer_to_list(N)).
 
 binary_to_integer(Bin) ->
     list_to_integer(binary_to_list(Bin)).
+-endif.
 
 %% @private
 get_chunk_size(Binary) ->
