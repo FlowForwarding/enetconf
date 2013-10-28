@@ -14,9 +14,13 @@ clean: rebar
 	@./rebar clean
 	@rm -f .eunit/enetconf
 
-run: compile
+run_server: compile
 	@erl -pa ../$(APP)/ebin -eval \
 	 "[ok = application:start(A) || A <- [crypto, asn1, public_key, ssh, xmerl, enetconf]]"
+
+run_client: compile
+	@erl -pa ../$(APP)/ebin -eval \
+	 "[ok = application:start(A) || A <- [crypto, asn1, public_key, ssh, xmerl]]"
 
 rebar:
 	@wget -q http://cloud.github.com/downloads/basho/rebar/rebar
