@@ -73,7 +73,8 @@
 %%------------------------------------------------------------------------------
 
 %% @doc Parse incoming XML.
--spec parse(string()) -> ok | {error, Reason :: term()}.
+-spec parse(string()) -> ok | {error, MessageId, Reason :: term()}
+                             when MessageId :: string() | 'undefined'.
 parse(XML) ->
     %% TODO: Add feature list
     try
@@ -87,9 +88,11 @@ parse(XML) ->
         do_parse(SimpleXML)
     catch
         exit:{fatal, {_, _, _, _}} ->
-            {error, malformed_message};
+            {error, undefined, malformed_message};
+        throw:{parse_error_with_message_id, ParseError, MessageId} ->
+            {error, MessageId, ParseError};
         throw:ParseError ->
-            {error, ParseError}
+            {error, undefined, ParseError}
     end.
 
 convert(Binary) when is_binary(Binary) ->
@@ -110,11 +113,19 @@ convert(XML) ->
 %% @private
 do_parse({rpc, Attrs, _} = RPC) ->
     MessageId = get_attr('message-id', RPC, required),
-    [Operation] = content([{choice, ?OPERATIONS}], RPC),
-    OtherAttributes = other_attributes(Attrs),
-    {ok, #rpc{message_id = MessageId,
-              operation = Operation,
-              attributes = OtherAttributes}};
+    %% We're supposed to return the message id along with any error
+    %% found during processing - so let's catch and rethrow errors
+    %% here, where we can access the message id.
+    try
+        [Operation] = content([{choice, ?OPERATIONS}], RPC),
+        OtherAttributes = other_attributes(Attrs),
+        {ok, #rpc{message_id = MessageId,
+                  operation = Operation,
+                  attributes = OtherAttributes}}
+    catch
+        throw:ParseError ->
+            throw({parse_error_with_message_id, ParseError, MessageId})
+    end;
 do_parse({hello, _, _} = Hello) ->
     [Capabilities] = content([{required, capabilities}], Hello),
     {ok, #hello{capabilities = Capabilities}};

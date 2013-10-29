@@ -91,7 +91,7 @@ handle_ssh_msg({ssh_cm, ConnRef, {data, ChannelId, ?DATA_TYPE_CODE, Data}},
                             NewState = handle_messages(Rest, TempState),
                             {ok, NewState}
                     end;
-                {error, _} ->
+                {error, _, _} ->
                     %% TODO: Send an error
                     ?WARNING("Invalid hello: ~p~n", [FirstMessage]),
                     {stop, ChannelId, State}
