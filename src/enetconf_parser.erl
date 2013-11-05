@@ -506,9 +506,17 @@ parent_layer(_) -> application.
 %% between xmlElements.
 %% @private
 to_simple_form(#xmlElement{name = Name,
+                           nsinfo = NsInfo,
                            attributes = Attrs,
                            content = Content}) ->
-    {name_to_simple_form(Name), attributes_to_simple_form(Attrs),
+    LocalName =
+        case NsInfo of
+            [] ->
+                Name;
+            {_Prefix, LocalNameS} ->
+                list_to_atom(LocalNameS)
+        end,
+    {LocalName, attributes_to_simple_form(Attrs),
      content_to_simple_form(Content)};
 to_simple_form(#xmlText{value = Value}) ->
     RemovedNewlines = re:replace(Value, "[\n\r\t ]", "",
@@ -521,16 +529,6 @@ to_simple_form(#xmlText{value = Value}) ->
     end;
 to_simple_form(Elements) when is_list(Elements) ->
     content_to_simple_form(Elements).
-
-%% @doc Remove namespace prefix from XML elements.
-%% @private
-name_to_simple_form(Name) ->
-    case re:split(atom_to_list(Name), ":", [{return, list}]) of
-        [_Namespace, Element] ->
-            list_to_atom(Element);
-        [_Element] ->
-            Name
-    end.
 
 %% @private
 content_to_simple_form([#xmlText{} = Text]) ->
