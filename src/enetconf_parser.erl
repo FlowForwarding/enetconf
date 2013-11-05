@@ -314,20 +314,15 @@ capability(Capability) ->
 
 %% @private
 other_attributes(Attrs) ->
-    other_attributes(Attrs, []).
-
-%% @private
-other_attributes([], Filtered) ->
-    lists:reverse(Filtered);
-other_attributes([{'message-id', _} | Rest], Filtered) ->
-    other_attributes(Rest, Filtered);
-other_attributes([{Name, _} | Rest] = Attrs, Filtered) ->
-    case atom_to_list(Name) of
-        [$x, $m, $l, $n, $s | _] ->
-            other_attributes(Rest, Filtered);
-        _ ->
-            other_attributes(Attrs, Filtered)
-    end.
+    lists:filter(
+      fun({'message-id', _}) ->
+              false;
+         ({'xmlns', _}) ->
+              false;
+         ({NameA, _}) ->
+              Name = atom_to_list(NameA),
+              not lists:prefix("xmlns:", Name)
+      end, Attrs).
 
 %%------------------------------------------------------------------------------
 %% Validation functions
