@@ -557,7 +557,18 @@ content_to_simple_form([_ | Rest], SimpleForms) ->
 
 %% @private
 attributes_to_simple_form(Attrs) ->
-    [{Name, Value} || #xmlAttribute{name = Name, value = Value} <- Attrs].
+    lists:map(fun attribute_to_simple_form/1, Attrs).
+
+attribute_to_simple_form(#xmlAttribute{name = Name, nsinfo = NsInfo, value = Value}) ->
+    case NsInfo of
+        [] ->
+            {Name, Value};
+        {"xmlns", _} ->
+            {Name, Value};
+        {_Prefix, LocalNameS} ->
+            LocalName = list_to_atom(LocalNameS),
+            {LocalName, Value}
+    end.
 
 %%------------------------------------------------------------------------------
 %% Back to xmerl records functions
