@@ -314,20 +314,15 @@ capability(Capability) ->
 
 %% @private
 other_attributes(Attrs) ->
-    other_attributes(Attrs, []).
-
-%% @private
-other_attributes([], Filtered) ->
-    lists:reverse(Filtered);
-other_attributes([{'message-id', _} | Rest], Filtered) ->
-    other_attributes(Rest, Filtered);
-other_attributes([{Name, _} | Rest] = Attrs, Filtered) ->
-    case atom_to_list(Name) of
-        [$x, $m, $l, $n, $s | _] ->
-            other_attributes(Rest, Filtered);
-        _ ->
-            other_attributes(Attrs, Filtered)
-    end.
+    lists:filter(
+      fun({'message-id', _}) ->
+              false;
+         ({'xmlns', _}) ->
+              false;
+         ({NameA, _}) ->
+              Name = atom_to_list(NameA),
+              not lists:prefix("xmlns:", Name)
+      end, Attrs).
 
 %%------------------------------------------------------------------------------
 %% Validation functions
@@ -506,9 +501,17 @@ parent_layer(_) -> application.
 %% between xmlElements.
 %% @private
 to_simple_form(#xmlElement{name = Name,
+                           nsinfo = NsInfo,
                            attributes = Attrs,
                            content = Content}) ->
-    {name_to_simple_form(Name), attributes_to_simple_form(Attrs),
+    LocalName =
+        case NsInfo of
+            [] ->
+                Name;
+            {_Prefix, LocalNameS} ->
+                list_to_atom(LocalNameS)
+        end,
+    {LocalName, attributes_to_simple_form(Attrs),
      content_to_simple_form(Content)};
 to_simple_form(#xmlText{value = Value}) ->
     RemovedNewlines = re:replace(Value, "[\n\r\t ]", "",
@@ -521,16 +524,6 @@ to_simple_form(#xmlText{value = Value}) ->
     end;
 to_simple_form(Elements) when is_list(Elements) ->
     content_to_simple_form(Elements).
-
-%% @doc Remove namespace prefix from XML elements.
-%% @private
-name_to_simple_form(Name) ->
-    case re:split(atom_to_list(Name), ":", [{return, list}]) of
-        [_Namespace, Element] ->
-            list_to_atom(Element);
-        [_Element] ->
-            Name
-    end.
 
 %% @private
 content_to_simple_form([#xmlText{} = Text]) ->
@@ -564,7 +557,18 @@ content_to_simple_form([_ | Rest], SimpleForms) ->
 
 %% @private
 attributes_to_simple_form(Attrs) ->
-    [{Name, Value} || #xmlAttribute{name = Name, value = Value} <- Attrs].
+    lists:map(fun attribute_to_simple_form/1, Attrs).
+
+attribute_to_simple_form(#xmlAttribute{name = Name, nsinfo = NsInfo, value = Value}) ->
+    case NsInfo of
+        [] ->
+            {Name, Value};
+        {"xmlns", _} ->
+            {Name, Value};
+        {_Prefix, LocalNameS} ->
+            LocalName = list_to_atom(LocalNameS),
+            {LocalName, Value}
+    end.
 
 %%------------------------------------------------------------------------------
 %% Back to xmerl records functions

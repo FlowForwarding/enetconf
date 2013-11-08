@@ -52,6 +52,12 @@
         "  </get-config>"
         "</rpc>").
 
+-define(GET_CONFIG_RPC_NS,
+        "<nc:rpc xmlns:nc=\"urn:ietf:params:xml:ns:netconf:base:1.0\" nc:message-id=\"1\"><nc:get-config>"
+        "<nc:source><nc:running/></nc:source>"
+        "</nc:get-config>"
+        "</nc:rpc>").
+
 -define(EDIT_CONFIG_RPC,
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         "<rpc message-id=\"1\""
@@ -148,6 +154,7 @@ parsing_test_() ->
      fun teardown/1,
      [{"Test hello message", fun hello/0},
       {"Test rpc 'get-config' operation", fun get_config/0},
+      {"Test rpc 'get-config' operation with namespace prefixes", fun get_config_ns/0},
       {"Test rpc 'edit-config' operation", fun edit_config/0},
       {"Test rpc 'copy-config' operation", fun copy_config/0},
       {"Test rpc 'delete-config' operation", fun delete_config/0},
@@ -169,6 +176,10 @@ get_config() ->
     RPC = #rpc{message_id = "2",
                operation = GetConfig},
     ?assertEqual({ok, RPC}, enetconf_parser:parse(?GET_CONFIG_RPC)).
+
+get_config_ns() ->
+    ?assertMatch({ok, #rpc{message_id = "1", operation = #get_config{}}},
+                 enetconf_parser:parse(?GET_CONFIG_RPC_NS)).
 
 edit_config() ->
     EditConfig = #edit_config{target = candidate,
