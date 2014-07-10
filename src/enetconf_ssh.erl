@@ -31,8 +31,12 @@
 %% ssh_channel callbacks
 -export([init/1,
          handle_msg/2,
+	 handle_call/3,
+	 handle_cast/2,
          handle_ssh_msg/2,
-         terminate/2]).
+	 code_change/3,
+         terminate/2
+	]).
 
 -record(state, {
           connection_ref :: ssh_channel:connection_ref(),
@@ -66,6 +70,12 @@ handle_msg({ssh_channel_up, ChannelId, ConnRef}, State) ->
 handle_msg({'EXIT', Reason}, #state{channel_id = ChannelId} = State) ->
     ?INFO("SSH channel ~p exited with reason: ~p", [ChannelId, Reason]),
     {stop, ChannelId, State}.
+
+handle_call(_Req,_From,State) ->
+	{reply,ok,State}.
+
+handle_cast(_Req,State) ->
+	{reply,State}.
 
 %% @private
 handle_ssh_msg({ssh_cm, ConnRef, {data, ChannelId, ?DATA_TYPE_CODE, Data}},
@@ -122,6 +132,9 @@ handle_ssh_msg({ssh_cm, ConnRef, {exit_signal, ChannelId, _ExitSignal,
 handle_ssh_msg({ssh_cm, ConnRef, {exit_status, ChannelId, _ExitStatus}},
                #state{connection_ref = ConnRef,
                       channel_id = ChannelId} = State) ->
+    {ok, State}.
+
+code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %% @private
